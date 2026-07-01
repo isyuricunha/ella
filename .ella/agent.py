@@ -436,7 +436,7 @@ class Ella:
         if self.mode in {"fix", "continue"}:
             if self.pr_info and self.pr_info.get("isCrossRepository") is True:
                 self.comment(
-                    "I will not apply automatic fixes to PRs coming from forks. For safety, I only commit to branches from this repository.")
+                    "For security reasons, I can only commit to branches inside this repository. If you are an external contributor, please ask a maintainer to pull your branch here first!")
                 self.react("confused")
                 return
             self.checkout_pr_branch()
@@ -511,25 +511,26 @@ class Ella:
 
         body = str(self.comment_event.get("body", "")).strip()
         commands = [
-            ("help", "/ella help"),
-            ("continue", "/ella continue"),
-            ("review", "/ella review"),
-            ("label", "/ella label"),
-            ("solve", "/ella solve"),
-            ("wiki", "/ella wiki"),
-            ("plan", "/ella plan"),
-            ("fix", "/ella fix"),
-            ("ask", "/ella ask"),
-            ("pr", "/ella pr"),
+            ("help", r"(?:^|\s)/ella\s+help"),
+            ("continue", r"(?:^|\s)/ella\s+continue"),
+            ("review", r"(?:^|\s)/ella\s+review"),
+            ("label", r"(?:^|\s)/ella\s+label"),
+            ("solve", r"(?:^|\s)/ella\s+solve"),
+            ("wiki", r"(?:^|\s)/ella\s+wiki"),
+            ("plan", r"(?:^|\s)/ella\s+plan"),
+            ("fix", r"(?:^|\s)/ella\s+fix"),
+            ("ask", r"(?:^|\s)/ella\s+ask"),
+            ("pr", r"(?:^|\s)/ella\s+pr"),
         ]
 
         self.mode = "unknown"
         self.prompt = ""
 
-        for mode, prefix in commands:
-            if body == prefix or body.startswith(prefix + " ") or body.startswith(prefix + "\n") or body.startswith(prefix + "\r\n"):
+        for mode, pattern in commands:
+            match = re.search(pattern, body, re.IGNORECASE)
+            if match:
                 self.mode = mode
-                self.prompt = body[len(prefix):].strip()
+                self.prompt = body[match.end():].strip()
                 break
 
         defaults = {
@@ -653,7 +654,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         
         for a in range(1, attempt + 1):
             if a < attempt:
-                lines.append(f"- [x] Turn {a}")
+                lines.append(f"- ❌ Turn {a} (Checks failed, refining...)")
             else:
                 lines.append(f"- [{' ' if status == 'working' else 'x'}] Turn {a}")
                 lines.append(f"  - [x] Preparing context")
