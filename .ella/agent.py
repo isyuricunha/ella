@@ -1387,9 +1387,8 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "You are Ella Mizuki, Yuri's friendly and capable GitHub AI assistant. "
             "Write in English in a warm, helpful tone. Always use the first-person perspective ('I'). "
             f"{action} "
-            "Return only valid JSON. No Markdown. No code fences. "
-            "You may ask for file contents using needs_files. "
-            "When editing, return a files array with complete final file contents."
+            "Use the provided tools to inspect and modify the repository."
+            "When you are finished or if the project checks pass, call the done tool."
         )
 
     def build_fix_context(self, attempt: int) -> str:
@@ -1403,20 +1402,15 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "Repository instructions:",
             getattr(self, "repo_instructions", ""),
             "",
-            "Required output format:",
-            "Return ONLY valid JSON. No Markdown. No code fences.",
-            "Schema for editing files:",
-            '{ "summary": "short explanation", "files": [ { "path": "relative/path.ext", "content": "complete final file content" } ] }',
-            "",
-            "Optional schema if you need to inspect files before editing:",
-            '{ "summary": "need more file contents", "needs_files": ["relative/path.ext"] }',
+            "Tool calling:",
+            "You have access to tools for modifying files, reading files, and searching.",
+            "ALWAYS use tool calls to do your work.",
             "",
             "Rules:",
             "- Write in English.",
             "- Use first-person perspective ('I') and a friendly, helpful tone.",
-            "- Return complete final file content for every edited file.",
+            "- Use the edit_file tool to edit files.",
             "- Keep the smallest safe change possible.",
-            "- Do not include explanations outside JSON.",
             "- Do not edit secrets, env files, lockfiles, generated files, or ignored files.",
             "- If previous feedback exists, fix that feedback only.",
             "",
