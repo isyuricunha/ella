@@ -1,5 +1,5 @@
 name: Bug Report
-description: Create a report to help me improve YuMusic
+description: Create a report to help me improve Ella
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -10,31 +10,22 @@ body:
         Please provide as much detail as possible to help me reproduce the issue.
         
         ### 📚 Before you submit:
-        Please check the **[Official Documentation](https://github.com/isyuricunha/yumusic-garmin-music-app/tree/main/docs)** to see if your issue is already solved:
-        - 🌐 **[Network & HTTPS Requirements](https://github.com/isyuricunha/yumusic-garmin-music-app/blob/main/docs/network-requirements.md)**
-        - 🛠️ **[Troubleshooting Errors (-1001, -300, etc.)](https://github.com/isyuricunha/yumusic-garmin-music-app/blob/main/docs/troubleshooting.md)**
+        Please check the **[Official Documentation](https://github.com/isyuricunha/ella/tree/main/docs)** to see if your issue is already solved:
+        - 🛠️ **[Setup Guide](https://github.com/isyuricunha/ella/blob/main/docs/setup.md)**
   - type: input
-    id: watch_model
+    id: environment
     attributes:
-      label: Garmin Watch Model
-      description: What specific Garmin watch model are you using?
-      placeholder: e.g. Forerunner 265, Fenix 7
+      label: Environment
+      description: Where are you running Ella?
+      placeholder: e.g. GitHub Actions, Local Script
     validations:
       required: true
   - type: input
-    id: app_version
+    id: llm_provider
     attributes:
-      label: YuMusic App Version
-      description: What version of YuMusic is installed on your watch?
-      placeholder: e.g. 1.6.0
-    validations:
-      required: true
-  - type: input
-    id: server_info
-    attributes:
-      label: Music Server & Version
-      description: What Subsonic-compatible server are you using? (e.g. Navidrome 0.61.2, Gonic, etc.)
-      placeholder: e.g. Navidrome 0.61.2
+      label: LLM Provider & Model
+      description: What AI provider and model are you using?
+      placeholder: e.g. OpenAI GPT-4o, NVIDIA Nemotron-3
     validations:
       required: true
   - type: textarea
@@ -51,10 +42,9 @@ body:
       label: Steps to Reproduce
       description: Steps to reproduce the behavior.
       placeholder: |
-        1. Open the app
-        2. Go to '...'
-        3. Click on '...'
-        4. See error
+        1. Create an issue
+        2. Tag the bot
+        3. See error in GitHub Actions logs
     validations:
       required: true
   - type: textarea
@@ -64,14 +54,6 @@ body:
       description: A clear and concise description of what you expected to happen.
     validations:
       required: true
-  - type: textarea
-    id: connection_test
-    attributes:
-      label: Connection Test Results
-      description: If this is a connection/sync issue, please run the "Test Connection" from the app menu and paste the results here.
-      placeholder: "Wi-Fi Check: ..., Public HTTPS: ..., Subsonic ping: ..., Get playlists: ..."
-    validations:
-      required: false
   - type: checkboxes
     id: checklist
     attributes:
@@ -79,9 +61,5 @@ body:
       options:
         - label: I have searched the existing issues and found no similar bug reports.
           required: true
-        - label: I am using HTTPS (HTTP is often blocked by Garmin Connect)
-          required: false
-        - label: I have verified my credentials and server URL are correct
-          required: false
-        - label: My phone is connected to the same network as my server (if using a local IP)
+        - label: I have verified my API keys and repository secrets are correct.
           required: false
