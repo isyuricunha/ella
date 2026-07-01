@@ -995,8 +995,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             
         # Keep logs limited
         if len(failed_logs) > 8000:
-            failed_logs = "...(truncated)...
-" + failed_logs[-8000:]
+            failed_logs = "...(truncated)...\\n" + failed_logs[-8000:]
             
         if "dependabot" in author.lower():
             self.prompt = f"Dependabot updated a dependency and it broke the CI. Read these logs, search the internet for the migration guide if needed, and fix the breaking changes.\n\nLogs:\n{failed_logs}"
