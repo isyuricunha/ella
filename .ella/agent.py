@@ -646,16 +646,16 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         
         lines = [
             f"### 🤖 Ella is working on it...",
-            f"**Limits:** {MAX_ATTEMPTS} attempts | {TIME_LIMIT_SECONDS // 60} minutes",
+            f"**Limits:** {MAX_ATTEMPTS} turns | {TIME_LIMIT_SECONDS // 60} minutes",
             f"**Time elapsed:** {elapsed}s",
             ""
         ]
         
         for a in range(1, attempt + 1):
             if a < attempt:
-                lines.append(f"- [x] Attempt {a} (failed)")
+                lines.append(f"- [x] Turn {a}")
             else:
-                lines.append(f"- [{' ' if status == 'working' else 'x'}] Attempt {a}")
+                lines.append(f"- [{' ' if status == 'working' else 'x'}] Turn {a}")
                 lines.append(f"  - [x] Preparing context")
                 if step == "calling":
                     lines.append(f"  - [{' ' if status == 'working' else 'x'}] Calling AI model")
@@ -1150,9 +1150,9 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         while attempt <= MAX_ATTEMPTS:
             elapsed = int(time.time() - start)
             if elapsed >= TIME_LIMIT_SECONDS:
-                self.final_summary = f"Failure type: time_limit\n\nTime limit reached before checks passed.\n\nAttempts used: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s"
+                self.final_summary = f"Failure type: time_limit\n\nTime limit reached before checks passed.\n\nTurns used: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s"
                 write_debug("final-summary.md", self.final_summary)
-                self.update_progress(f"⏱️ I reached the time limit.\n\nAttempts: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s")
+                self.update_progress(f"⏱️ I reached the time limit.\n\nTurns: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s")
                 return False
 
             self.update_checklist(attempt, "calling", "working")
@@ -1236,9 +1236,9 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             
             attempt += 1
 
-        self.final_summary = f"I tried to solve this in a loop, but I could not get the checks to pass within the limits.\n\nAttempts used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.\n\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")
+        self.final_summary = f"I tried to solve this in a loop, but I could not get the checks to pass within the limits.\n\nTurns used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.\n\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")
         write_debug("final-summary.md", self.final_summary)
-        self.update_progress(f"❌ I could not get the checks to pass within the limits.\n\nAttempts used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.")
+        self.update_progress(f"❌ I could not get the checks to pass within the limits.\n\nTurns used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.")
         return False
 
     def system_prompt_for_fix(self) -> str:
