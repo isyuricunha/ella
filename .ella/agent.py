@@ -402,7 +402,7 @@ class Ella:
             self.react("confused")
             return
 
-        if self.mode in {"ask", "pr", "review", "plan", "label", "fix", "continue", "solve"}:
+        if self.mode in {"ask", "pr", "review", "plan", "label", "fix", "continue", "solve", "heal"}:
             self.validate_ai_config()
 
         if (not self.is_pr) and self.mode in {"pr", "review", "fix", "continue"}:
@@ -424,6 +424,18 @@ class Ella:
 
         if self.mode in {"ask", "pr", "review", "plan"}:
             response = self.handle_read_only()
+            if self.mode == "review":
+                try:
+                    data = parse_jsonish(response)
+                    summary = data.get("summary", "")
+                    comments = data.get("comments", [])
+                    if summary or comments:
+                        self.post_inline_review(summary, comments)
+                        self.react("+1")
+                        return
+                except Exception as e:
+                    print(f"Failed to parse review JSON: {e}")
+                    pass
             self.comment(response)
             self.react("+1")
             return
@@ -486,6 +498,9 @@ class Ella:
                 self.react("confused")
             return
 
+        if self.mode == "heal":
+            self.handle_heal()
+            return
     def mask_secrets(self) -> None:
         for value in [
             os.environ.get("ELLA_AI_BASE_URL", ""),
@@ -504,6 +519,11 @@ class Ella:
             self.prompt = ""
             return
             
+        if event_name == "workflow_run" and self.event.get("action") == "completed":
+            self.mode = "heal"
+            self.prompt = ""
+            return
+
         if event_name in {"pull_request", "pull_request_target"} and self.event.get("action") in {"opened", "synchronize"}:
             self.mode = "review"
             self.prompt = "Please perform a thorough code review of this PR."
@@ -833,7 +853,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
     def system_prompt_for_read_only(self) -> str:
         base = "You are Ella Mizuki, Yuri's friendly and capable GitHub AI assistant. Write in English in a warm, helpful, and natural tone. Always use the first-person perspective ('I')."
         if self.mode == "review":
-            return base + " Perform a thorough code review. Be constructive and helpful. Focus on bugs, security risks, regressions, type issues, missing tests, breaking changes, and suspicious code. Do not modify code. Format your review using premium Markdown: use headings (e.g. 'Critical Issues', 'Suggestions'), bullet points, and code snippets where actionable. Keep it concise and visually clean."
+            return base + ' Perform a thorough code review. Focus on bugs, security risks, type issues, and suspicious code. Do not modify code. You MUST return ONLY valid JSON in this exact format: { "summary": "General review summary in Markdown", "comments": [ { "path": "src/file.py", "line": 42, "body": "Comment text" } ] }. Only include comments for lines that actually exist in the diff. No Markdown fences around the JSON.'
         if self.mode == "plan":
             return base + " Create a clear and practical implementation plan. Do not modify code. Include likely files, steps, risks, and checks."
         if self.mode == "label":
@@ -890,6 +910,122 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         write_debug("label-summary.txt", summary + "\n")
         self.comment(
             f"I applied these labels: {', '.join(labels_by_name[name]['name'] for name in picked)}\n\n{summary}")
+
+    def post_inline_review(self, summary: str, comments: list[dict]) -> None:
+        if not self.pr_info:
+            return
+        commit_id = self.pr_info.get("headRefOid")
+        if not commit_id:
+            return
+            
+        payload = {
+            "commit_id": commit_id,
+            "event": "COMMENT",
+            "body": summary or "Ella's Code Review",
+            "comments": []
+        }
+        
+        for c in comments:
+            path = c.get("path")
+            line = c.get("line")
+            body = c.get("body")
+            if path and line and body:
+                payload["comments"].append({
+                    "path": str(path),
+                    "line": int(line),
+                    "side": "RIGHT",
+                    "body": str(body)
+                })
+                
+        if not payload["comments"]:
+            self.comment(summary)
+            return
+
+        json_payload = json.dumps(payload)
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
+            f.write(json_payload)
+            temp_path = f.name
+            
+        try:
+            gh(["api", "--method", "POST", f"repos/{self.repo}/pulls/{self.issue_number}/reviews", "--input", temp_path])
+            self.comment("I left a few inline comments on the changed files! 🚀")
+        except Exception as e:
+            print(f"Failed to post inline review: {e}")
+            self.comment(summary + "\n\n(Note: I tried to post inline comments but an error occurred.)")
+        finally:
+            os.remove(temp_path)
+
+
+    def handle_heal(self) -> None:
+        run_data = self.event.get("workflow_run", {})
+        run_id = run_data.get("id")
+        head_branch = run_data.get("head_branch")
+        
+        if not run_id:
+            print("No run_id found in workflow_run event")
+            return
+            
+        pull_requests = run_data.get("pull_requests", [])
+        if pull_requests:
+            self.issue_number = pull_requests[0].get("number")
+        else:
+            try:
+                pr_list = json.loads(gh(["pr", "list", "--head", head_branch, "--repo", self.repo, "--json", "number"]))
+                if pr_list:
+                    self.issue_number = pr_list[0]["number"]
+            except Exception as e:
+                print(f"Failed to find PR for branch {head_branch}: {e}")
+                
+        if not self.issue_number:
+            print("No PR found to heal.")
+            return
+            
+        self.is_pr = True
+        self.load_pr_metadata()
+        
+        author = self.pr_info.get("author", {}).get("login", "")
+        
+        # Download failed logs
+        try:
+            failed_logs = gh(["run", "view", str(run_id), "--log-failed", "--repo", self.repo])
+        except Exception as e:
+            print(f"Failed to get logs for run {run_id}: {e}")
+            failed_logs = "Logs unavailable."
+            
+        # Keep logs limited
+        if len(failed_logs) > 8000:
+            failed_logs = "...(truncated)...
+" + failed_logs[-8000:]
+            
+        if "dependabot" in author.lower():
+            self.prompt = f"Dependabot updated a dependency and it broke the CI. Read these logs, search the internet for the migration guide if needed, and fix the breaking changes.\n\nLogs:\n{failed_logs}"
+        else:
+            self.prompt = f"The CI workflow failed on this PR. Please analyze the logs and fix the issue.\n\nLogs:\n{failed_logs}"
+            
+        self.checkout_pr_branch()
+        self.load_repo_instructions()
+        self.allowed_files = self.get_pr_changed_files()
+        
+        # Adding common files for context in heal mode
+        for common in ["package.json", "pyproject.toml", "go.mod", "Cargo.toml"]:
+            if (ROOT / common).exists() and common not in self.allowed_files:
+                self.allowed_files.append(common)
+                
+        self.create_progress_comment(
+            "🚑 I am the **Auto-Healer**. I detected a CI failure and I'm automatically trying to fix it!\n\n"
+            f"Status: analyzing logs and preparing branch.\n"
+            f"Limit: {MAX_ATTEMPTS} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+        )
+        
+        success = self.fix_loop()
+        if success:
+            commit_sha = self.commit_and_push_fix()
+            self.comment(f"🚑 I successfully auto-healed the CI pipeline!\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
+            self.react("rocket")
+        else:
+            self.comment(f"🚑 I tried to auto-heal the CI, but I couldn't get the checks to pass within the limits.\n\n{self.final_summary}")
+            self.react("confused")
 
     def get_tools(self) -> list[dict]:
         return [

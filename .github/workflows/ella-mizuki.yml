@@ -7,6 +7,9 @@ on:
     types: [created]
   pull_request_target:
     types: [opened, synchronize]
+  workflow_run:
+    workflows: ["*"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -17,6 +20,7 @@ permissions:
 jobs:
   ella-mizuki:
     if: >
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name != 'Ella Mizuki') ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'isyuricunha') ||
       (github.event_name == 'issues' && github.event.action == 'opened') ||
       (github.event_name == 'pull_request_target' && (github.event.action == 'opened' || github.event.action == 'synchronize'))
@@ -24,7 +28,7 @@ jobs:
     timeout-minutes: 60
 
     concurrency:
-      group: ella-mizuki-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number }}
+      group: ella-mizuki-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
       cancel-in-progress: false
 
     steps:
