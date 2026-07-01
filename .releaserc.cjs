@@ -19,51 +19,55 @@ module.exports = {
           transform: (commit, context) => {
             let discard = true;
             const issues = [];
-            const c = Object.assign({}, commit);
             
-            if (c.type === 'feat') {
-              c.type = 'Features';
+            let type = commit.type;
+
+            if (type === 'feat') {
+              type = 'Features';
               discard = false;
-            } else if (c.type === 'fix') {
-              c.type = 'Bug Fixes';
+            } else if (type === 'fix') {
+              type = 'Bug Fixes';
               discard = false;
-            } else if (c.type === 'perf') {
-              c.type = 'Performance Improvements';
+            } else if (type === 'perf') {
+              type = 'Performance Improvements';
               discard = false;
-            } else if (c.type === 'revert' || c.revert) {
-              c.type = 'Reverts';
+            } else if (type === 'revert' || commit.revert) {
+              type = 'Reverts';
               discard = false;
-            } else if (c.type === 'refactor') {
-              c.type = 'Code Refactoring';
+            } else if (type === 'refactor') {
+              type = 'Code Refactoring';
               discard = false;
-            } else if (c.type === 'audit') {
-              c.type = 'Security Audits';
+            } else if (type === 'audit') {
+              type = 'Security Audits';
               discard = false;
             }
 
             if (discard) return undefined;
 
-            if (c.scope === '*') {
-              c.scope = '';
+            let scope = commit.scope;
+            if (scope === '*') {
+              scope = '';
             }
 
-            if (typeof c.hash === 'string') {
-              c.shortHash = c.hash.substring(0, 7);
+            let shortHash = commit.shortHash;
+            if (typeof commit.hash === 'string') {
+              shortHash = commit.hash.substring(0, 7);
             }
 
-            if (typeof c.subject === 'string') {
+            let subject = commit.subject;
+            if (typeof subject === 'string') {
               let url = context.repository
                 ? `${context.host}/${context.owner}/${context.repository}`
                 : context.repoUrl;
               if (url) {
                 url = `${url}/issues/`;
-                c.subject = c.subject.replace(/#([0-9]+)/g, (_, issue) => {
+                subject = subject.replace(/#([0-9]+)/g, (_, issue) => {
                   issues.push(issue);
                   return `[#${issue}](${url}${issue})`;
                 });
               }
               if (context.host) {
-                c.subject = c.subject.replace(/\B@([a-z0-9](?:-?[a-z0-9/]){0,38})/g, (_, username) => {
+                subject = subject.replace(/\B@([a-z0-9](?:-?[a-z0-9/]){0,38})/g, (_, username) => {
                   if (username.includes('/')) {
                     return `@${username}`;
                   }
@@ -72,11 +76,17 @@ module.exports = {
               }
             }
 
-            c.references = (c.references || []).filter(reference => {
+            const references = (commit.references || []).filter(reference => {
               return issues.indexOf(reference.issue) === -1;
             });
 
-            return c;
+            return {
+              type,
+              scope,
+              shortHash,
+              subject,
+              references
+            };
           }
         }
       }
