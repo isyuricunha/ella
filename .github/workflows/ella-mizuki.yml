@@ -72,7 +72,7 @@ jobs:
           python3 .ella/agent.py
 
       - name: Upload debug artifacts
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ella-mizuki-debug-${{ github.run_id }}

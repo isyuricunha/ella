@@ -121,8 +121,29 @@ class CommandError(Exception):
     pass
 
 
+def scrub_secrets(text: str) -> str:
+    if not isinstance(text, str):
+        return text
+    
+    secrets_to_mask = [
+        "GH_TOKEN", "GITHUB_TOKEN", 
+        "ELLA_AI_API_KEY", 
+        "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID"
+    ]
+    
+    for key in secrets_to_mask:
+        secret = os.environ.get(key)
+        if secret and len(secret) >= 3:
+            text = text.replace(secret, "***REDACTED***")
+            
+    # Also redact generic GitHub tokens pattern
+    text = re.sub(r'gh[ps]_[a-zA-Z0-9]{36}', '***REDACTED***', text)
+    return text
+
+
 def write_debug(name: str, text: str) -> None:
-    (OUT / name).write_text(text, encoding="utf-8", errors="replace")
+    safe_text = scrub_secrets(text)
+    (OUT / name).write_text(safe_text, encoding="utf-8", errors="replace")
 
 
 def read_text_limited(path: Path, limit: int) -> str:
@@ -164,14 +185,8 @@ def run_cmd(
         output = result.stdout if capture else ""
         error_msg = f"Command failed: {' '.join(args)}\n{output}"
         
-        # Security patch: Redact known secrets from exception message to avoid leaking tokens to GitHub comments
-        for key in ["GH_TOKEN", "GITHUB_TOKEN", "NIM_API_KEY", "ELLA_AI_API_KEY"]:
-            secret = os.environ.get(key)
-            if secret and len(secret) > 3:
-                error_msg = error_msg.replace(secret, "***REDACTED***")
-                
-        # Also redact any generic GitHub token pattern
-        error_msg = re.sub(r'gh[ps]_[a-zA-Z0-9]{36}', '***REDACTED***', error_msg)
+        # Security patch: Redact known secrets from exception message to avoid leaking tokens
+        error_msg = scrub_secrets(error_msg)
 
         raise CommandError(error_msg)
     return result
