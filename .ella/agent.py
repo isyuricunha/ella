@@ -633,6 +633,14 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             f"body={body}",
         ], check=False)
 
+    def update_task_checklist(self, title: str, steps: list[tuple[str, bool]], detail: str = "") -> None:
+        lines = [f"### 🤖 {title}\n"]
+        for step_name, is_done in steps:
+            lines.append(f"- [{'x' if is_done else ' '}] {step_name}")
+        if detail:
+            lines.append(f"\n> {detail}")
+        self.update_progress("\n".join(lines))
+
     def update_checklist(self, attempt: int, step: str, status: str, detail: str = "") -> None:
         elapsed = int(time.time() - getattr(self, "fix_start_time", time.time()))
         
@@ -757,7 +765,12 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
     def handle_read_only(self) -> str:
         context = self.build_read_only_context()
         system = self.system_prompt_for_read_only()
-        response = self.ai_call(context, system, MAX_TOKENS[self.mode])
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": context}
+        ]
+        content, _ = self.ai_call(messages, MAX_TOKENS[self.mode])
+        response = content or ""
         write_debug("ai-response.txt", response)
         return response
 
@@ -819,7 +832,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
     def system_prompt_for_read_only(self) -> str:
         base = "You are Ella Mizuki, Yuri's friendly and capable GitHub AI assistant. Write in English in a warm, helpful, and natural tone. Always use the first-person perspective ('I')."
         if self.mode == "review":
-            return base + " Perform a thorough code review. Be constructive and helpful. Focus on bugs, security risks, regressions, type issues, missing tests, breaking changes, and suspicious code. Do not modify code."
+            return base + " Perform a thorough code review. Be constructive and helpful. Focus on bugs, security risks, regressions, type issues, missing tests, breaking changes, and suspicious code. Do not modify code. Format your review using premium Markdown: use headings (e.g. 'Critical Issues', 'Suggestions'), bullet points, and code snippets where actionable. Keep it concise and visually clean."
         if self.mode == "plan":
             return base + " Create a clear and practical implementation plan. Do not modify code. Include likely files, steps, risks, and checks."
         if self.mode == "label":
@@ -1071,6 +1084,11 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         elif name == "read_file":
             filepath = args.get("filepath", "")
             path = ROOT / filepath
+            try:
+                if not path.resolve().is_relative_to(ROOT.resolve()):
+                    return f"Error: unauthorized path {filepath}. Access outside repository is denied."
+            except ValueError:
+                return f"Error: invalid path {filepath}."
             if not path.exists():
                 return f"Error: file {filepath} not found."
             return f"--- {filepath} ---\n" + read_text_limited(path, MAX_CONTEXT_FILE_BYTES)
@@ -1080,6 +1098,12 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             search_text = args.get("search_text", "")
             replace_text = args.get("replace_text", "")
             path = ROOT / filepath
+            
+            try:
+                if not path.resolve().is_relative_to(ROOT.resolve()):
+                    return f"Error: unauthorized path {filepath}. Access outside repository is denied."
+            except ValueError:
+                return f"Error: invalid path {filepath}."
             
             if not path.exists():
                 return f"Error: file {filepath} not found."
@@ -1924,10 +1948,14 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         return out.strip()
 
     def handle_triage(self) -> None:
+        self.create_progress_comment("⏳ I am triaging this issue...")
+        self.update_task_checklist("Issue Triage", [("Assigning user", False), ("Fetching issues", False), ("Generating response", False)])
         try:
             gh(["issue", "edit", str(self.issue_number), "--repo", self.repo, "--add-assignee", "isyuricunha"])
         except Exception as e:
             print(f"Failed to assign user: {e}")
+
+        self.update_task_checklist("Issue Triage", [("Assigning user", True), ("Fetching issues", False), ("Generating response", False)])
 
         try:
             issues_json = gh(["issue", "list", "--state", "open", "--json", "number,title,body", "--limit", "80", "--repo", self.repo])
@@ -1971,7 +1999,14 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
         context = f"New Issue:\nTitle: {issue_title}\nBody: {issue_body}\n\nOther Open Issues:\n{json.dumps(other_issues, indent=2)}"
 
-        response = self.ai_call(context, system_prompt, MAX_TOKENS.get("triage", 8192))
+        self.update_task_checklist("Issue Triage", [("Assigning user", True), ("Fetching issues", True), ("Generating response", False)])
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": context}
+        ]
+        content_resp, _ = self.ai_call(messages, MAX_TOKENS.get("triage", 8192))
+        response = content_resp or ""
         
         import re
         match_duplicate = re.search(r"DUPLICATE_OF:\s*#(\d+)", response)
@@ -2020,6 +2055,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         import shutil
 
         self.create_progress_comment("⏳ I am generating the Wiki documentation. Give me a moment to read the repository...")
+        self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", False), ("Generating pages", False), ("Pushing to wiki", False)])
 
         self.load_repo_instructions()
         self.allowed_files = self.get_repo_files()
@@ -2053,8 +2089,17 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "---FILENAME: Setup.md---\n# Setup\nContent goes here..."
         )
 
+        self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", False), ("Pushing to wiki", False)])
+
         try:
-            wiki_content = self.ai_call(context_str, system_prompt, 8192)
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context_str}
+            ]
+            content_resp, _ = self.ai_call(messages, 8192)
+            wiki_content = content_resp or ""
+            
+            self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", False)])
             pages = parse_markdown_files(wiki_content)
             
             if not pages:
@@ -2091,10 +2136,10 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
             shutil.rmtree(wiki_dir, ignore_errors=True)
 
-            self.update_progress("✅ The Wiki documentation has been successfully generated and pushed! Check your repository's Wiki tab.")
+            self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", True)], "✅ The Wiki documentation has been successfully generated and pushed! Check your repository's Wiki tab.")
 
         except Exception as e:
-            self.update_progress(f"❌ I encountered an error while generating or pushing the Wiki: {e}\n\nMake sure I have Wiki write permissions!")
+            self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", False)], f"❌ I encountered an error while generating or pushing the Wiki: {e}\\n\\nMake sure I have Wiki write permissions!")
             print(f"Wiki error: {e}")
 
 def main() -> int:
