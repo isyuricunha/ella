@@ -1,8 +1,28 @@
 {
   "branches": ["main"],
   "plugins": [
-    "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          { "type": "refactor", "release": "patch" },
+          { "type": "audit", "release": "patch" }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "writerOpts": {
+          "commitGroupsSort": "title",
+          "commitsSort": ["scope", "subject"],
+          "noteGroupsSort": "title",
+          "notesSort": ["scope", "subject"]
+        }
+      }
+    ],
     "@semantic-release/github"
   ]
 }
