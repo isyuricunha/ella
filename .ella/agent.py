@@ -113,6 +113,7 @@ MAX_TOKENS = {
     "fix": env_int("ELLA_MAX_TOKENS_FIX", 16384),
     "continue": env_int("ELLA_MAX_TOKENS_FIX", 16384),
     "solve": env_int("ELLA_MAX_TOKENS_SOLVE", 16384),
+    "heal": env_int("ELLA_MAX_TOKENS_HEAL", 16384),
     "triage": env_int("ELLA_MAX_TOKENS_TRIAGE", 8192),
 }
 
@@ -1294,7 +1295,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             self.update_checklist(attempt, "calling", "working")
 
             try:
-                content, tool_calls = self.ai_call(messages, MAX_TOKENS[self.mode], tools=self.get_tools())
+                content, tool_calls = self.ai_call(messages, MAX_TOKENS.get(self.mode, 16384), tools=self.get_tools())
             except Exception as exc:
                 self.feedback = f"Failure type: ai_endpoint\n\n{exc}"
                 write_debug("feedback.txt", self.feedback)
