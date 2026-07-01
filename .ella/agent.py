@@ -343,11 +343,15 @@ class Ella:
         self.event = json.loads(Path(event_path).read_text(encoding="utf-8"))
         self.repo = os.environ["GITHUB_REPOSITORY"]
         self.run_id = os.environ.get("GITHUB_RUN_ID", str(int(time.time())))
-        self.issue = self.event["issue"]
+        self.issue_number = -1
+        self.issue = self.event.get("issue", {})
+        if "issue" in self.event:
+            self.issue_number = int(self.issue["number"])
+        elif "pull_request" in self.event:
+            self.issue_number = int(self.event["pull_request"]["number"])
         self.comment_event = self.event.get("comment", {})
-        self.issue_number = int(self.issue["number"])
         self.comment_id = int(self.comment_event.get("id", 0))
-        self.is_pr = "pull_request" in self.issue
+        self.is_pr = "pull_request" in self.event or "pull_request" in self.issue
         self.default_branch = self.event["repository"]["default_branch"]
 
         self.mode = "unknown"
@@ -499,6 +503,11 @@ class Ella:
             self.mode = "triage"
             self.prompt = ""
             return
+            
+        if event_name in {"pull_request", "pull_request_target"} and self.event.get("action") in {"opened", "synchronize"}:
+            self.mode = "review"
+            self.prompt = "Please perform a thorough code review of this PR."
+            return
 
         body = str(self.comment_event.get("body", "")).strip()
         commands = [
@@ -624,6 +633,41 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             f"body={body}",
         ], check=False)
 
+    def update_checklist(self, attempt: int, step: str, status: str, detail: str = "") -> None:
+        elapsed = int(time.time() - getattr(self, "fix_start_time", time.time()))
+        
+        lines = [
+            f"### 🤖 Ella is working on it...",
+            f"**Limits:** {MAX_ATTEMPTS} attempts | {TIME_LIMIT_SECONDS // 60} minutes",
+            f"**Time elapsed:** {elapsed}s",
+            ""
+        ]
+        
+        for a in range(1, attempt + 1):
+            if a < attempt:
+                lines.append(f"- [x] Attempt {a} (failed)")
+            else:
+                lines.append(f"- [{' ' if status == 'working' else 'x'}] Attempt {a}")
+                lines.append(f"  - [x] Preparing context")
+                if step == "calling":
+                    lines.append(f"  - [{' ' if status == 'working' else 'x'}] Calling AI model")
+                elif step == "applying":
+                    lines.append(f"  - [x] Calling AI model")
+                    lines.append(f"  - [{' ' if status == 'working' else 'x'}] Applying changes")
+                elif step == "checking":
+                    lines.append(f"  - [x] Calling AI model")
+                    lines.append(f"  - [x] Applying changes")
+                    lines.append(f"  - [{' ' if status == 'working' else 'x'}] Running project checks")
+                elif step == "done":
+                    lines.append(f"  - [x] Calling AI model")
+                    lines.append(f"  - [x] Applying changes")
+                    lines.append(f"  - [x] Running project checks")
+                
+                if detail:
+                    lines.append(f"\n> {detail}")
+
+        self.update_progress("\n".join(lines))
+
     def load_pr_metadata(self) -> None:
         raw = gh([
             "pr",
@@ -632,7 +676,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "--repo",
             self.repo,
             "--json",
-            "title,body,author,baseRefName,headRefName,headRepository,headRepositoryOwner,isCrossRepository,isDraft,state,url",
+            "title,body,author,baseRefName,headRefName,headRepository,headRepositoryOwner,isCrossRepository,isDraft,state,url,comments",
         ])
         self.pr_info = json.loads(raw)
         write_debug("pr-info.json", json.dumps(self.pr_info, indent=2))
@@ -649,7 +693,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "--repo",
             self.repo,
             "--json",
-            "title,body,author,url,number,state",
+            "title,body,author,url,number,state,comments",
         ])
         self.issue_info = json.loads(raw)
         write_debug("issue-info.json", json.dumps(self.issue_info, indent=2))
@@ -737,22 +781,36 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             ])
 
         if self.pr_info:
+            pr_data = dict(self.pr_info)
+            comments = pr_data.pop("comments", [])
             lines.extend([
                 "",
                 "PR info:",
-                json.dumps(self.pr_info, indent=2),
+                json.dumps(pr_data, indent=2),
                 "",
                 "PR diff, possibly truncated:",
                 (OUT / "pr-diff-limited.txt").read_text(encoding="utf-8",
                                                         errors="replace") if (OUT / "pr-diff-limited.txt").exists() else "",
             ])
+            if comments:
+                lines.append("\nConversation History (Comments):")
+                for c in comments:
+                    author = c.get("author", {}).get("login", "unknown")
+                    lines.append(f"\n--- Comment by @{author} ---\n{c.get('body', '').strip()}\n-----------------------------")
 
         if self.issue_info:
+            issue_data = dict(self.issue_info)
+            comments = issue_data.pop("comments", [])
             lines.extend([
                 "",
                 "Issue info:",
-                json.dumps(self.issue_info, indent=2),
+                json.dumps(issue_data, indent=2),
             ])
+            if comments:
+                lines.append("\nConversation History (Comments):")
+                for c in comments:
+                    author = c.get("author", {}).get("login", "unknown")
+                    lines.append(f"\n--- Comment by @{author} ---\n{c.get('body', '').strip()}\n-----------------------------")
 
         context = "\n".join(lines)
         write_debug("context.txt", context)
@@ -938,6 +996,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
     def fix_loop(self) -> bool:
         start = time.time()
+        self.fix_start_time = start
         attempt = 1
 
         if not self.prepare_environment():
@@ -968,12 +1027,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 return False
 
             print(f"Attempt {attempt}/{MAX_ATTEMPTS}")
-            self.update_progress(
-                "👀 I am working on it.\n\n"
-                f"Status: attempt {attempt}/{MAX_ATTEMPTS}\n"
-                "Step: preparing context and calling the model.\n"
-                f"Time used: {elapsed}s/{TIME_LIMIT_SECONDS}s"
-            )
+            self.update_checklist(attempt, "calling", "working")
 
             context = self.build_fix_context(attempt)
             system = self.system_prompt_for_fix()
@@ -992,8 +1046,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 self.append_needed_files_context()
                 self.feedback = f"Failure type: needs_more_files\n\nAttempt {attempt} requested more files. I provided the valid requested files."
                 write_debug("feedback.txt", self.feedback)
-                self.update_progress(
-                    f"📖 I need more context.\n\nAttempt: {attempt}/{MAX_ATTEMPTS}\nStatus: I provided the extra allowed files.")
+                self.update_checklist(attempt, "calling", "working", "I provided the extra allowed files.")
                 attempt += 1
                 continue
 
@@ -1001,8 +1054,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 self.feedback = f"Attempt {attempt} returned invalid or non-applicable JSON.\n\n" + (
                     OUT / "apply-error.txt").read_text(encoding="utf-8", errors="replace")
                 write_debug("feedback.txt", self.feedback)
-                self.update_progress(
-                    f"⚠️ The model returned a response I could not apply.\n\nAttempt: {attempt}/{MAX_ATTEMPTS}\nNext step: ask for a corrected format or allowed file.")
+                self.update_checklist(attempt, "applying", "failed", "Invalid JSON format returned.")
                 attempt += 1
                 continue
 
@@ -1012,8 +1064,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             if diff_check.returncode != 0:
                 self.feedback = f"Failure type: diff_check_failed\n\nAttempt {attempt} failed git diff --check.\n\n{diff_check.stdout}"
                 write_debug("feedback.txt", self.feedback)
-                self.update_progress(
-                    f"⚠️ I applied changes, but they failed git diff --check.\n\nAttempt: {attempt}/{MAX_ATTEMPTS}\nNext step: fix formatting or whitespace.")
+                self.update_checklist(attempt, "applying", "failed", "Changes failed git diff --check (formatting/whitespace).")
                 attempt += 1
                 continue
 
@@ -1023,13 +1074,11 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             if not changed.strip():
                 self.feedback = f"Failure type: no_changes\n\nAttempt {attempt} did not produce real file changes."
                 write_debug("feedback.txt", self.feedback)
-                self.update_progress(
-                    f"⚠️ I did not produce any real file changes.\n\nAttempt: {attempt}/{MAX_ATTEMPTS}\nNext step: retry with clearer feedback.")
+                self.update_checklist(attempt, "applying", "failed", "No file changes produced.")
                 attempt += 1
                 continue
 
-            self.update_progress(
-                f"🧪 I applied changes and I am running checks.\n\nAttempt: {attempt}/{MAX_ATTEMPTS}\nStep: install/lint/test/build or detected project checks.")
+            self.update_checklist(attempt, "checking", "working")
 
             checks_ok = self.run_project_checks()
             if checks_ok:
@@ -1044,8 +1093,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                                                             errors="replace")
                 )
                 write_debug("final-summary.md", self.final_summary)
-                self.update_progress(
-                    f"✅ Checks passed.\n\nAttempts used: {attempt}/{MAX_ATTEMPTS}\nNext step: commit/PR.")
+                self.update_checklist(attempt, "done", "success", "Checks passed! Committing changes.")
                 return True
 
             self.feedback = (
@@ -1056,8 +1104,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 + "\n\nFix only the errors above while preserving the current behavior."
             )
             write_debug("feedback.txt", self.feedback)
-            self.update_progress(
-                f"🔁 I applied changes, but checks failed.\n\nAttempt: {attempt}/{MAX_ATTEMPTS}\nNext step: fix the check errors and try again.")
+            self.update_checklist(attempt, "checking", "failed", "Project checks failed. Will retry.")
             attempt += 1
 
         self.final_summary = (
@@ -1124,10 +1171,12 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         ]
 
         if self.mode in {"fix", "continue"}:
+            pr_data = dict(self.pr_info or {})
+            comments = pr_data.pop("comments", [])
             lines.extend([
                 "",
                 "PR info:",
-                json.dumps(self.pr_info or {}, indent=2),
+                json.dumps(pr_data, indent=2),
                 "",
                 "PR diff, truncated:",
                 (OUT / "pr-diff-limited.txt").read_text(encoding="utf-8",
@@ -1140,12 +1189,19 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 if path.exists():
                     lines.append(
                         f"\n----- FILE: {rel} -----\n{read_text_limited(path, MAX_CONTEXT_FILE_BYTES)}\n----- END FILE: {rel} -----")
+            if comments:
+                lines.append("\nConversation History (Comments):")
+                for c in comments:
+                    author = c.get("author", {}).get("login", "unknown")
+                    lines.append(f"\n--- Comment by @{author} ---\n{c.get('body', '').strip()}\n-----------------------------")
 
         if self.mode == "solve":
+            issue_data = dict(self.issue_info or {})
+            comments = issue_data.pop("comments", [])
             lines.extend([
                 "",
                 "Issue info:",
-                json.dumps(self.issue_info or {}, indent=2),
+                json.dumps(issue_data, indent=2),
                 "",
                 "Repository files, truncated:",
                 (OUT / "repo-files-limited.txt").read_text(encoding="utf-8",
@@ -1171,6 +1227,11 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 if path.exists() and not is_ignored(rel, self.ignore_patterns):
                     lines.append(
                         f"\n----- FILE: {rel} -----\n{read_text_limited(path, MAX_CONTEXT_FILE_BYTES)}\n----- END FILE: {rel} -----")
+            if comments:
+                lines.append("\nConversation History (Comments):")
+                for c in comments:
+                    author = c.get("author", {}).get("login", "unknown")
+                    lines.append(f"\n--- Comment by @{author} ---\n{c.get('body', '').strip()}\n-----------------------------")
 
         context = "\n".join(lines)
         write_debug("context.txt", context)
