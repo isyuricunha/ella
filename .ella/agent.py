@@ -877,19 +877,93 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         self.comment(
             f"I applied these labels: {', '.join(labels_by_name[name]['name'] for name in picked)}\n\n{summary}")
 
-    def ai_call(self, context: str, system_prompt: str, max_tokens: int, allow_retry: bool = True) -> str:
+    def get_tools(self) -> list[dict]:
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_code",
+                    "description": "Search the codebase using git grep.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "The search term"}
+                        },
+                        "required": ["query"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Read the contents of a file.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "filepath": {"type": "string"}
+                        },
+                        "required": ["filepath"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "edit_file",
+                    "description": "Edit a file by replacing a block of text.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "filepath": {"type": "string"},
+                            "search_text": {"type": "string", "description": "Exact text to replace. Must be unique in the file."},
+                            "replace_text": {"type": "string", "description": "The new text"}
+                        },
+                        "required": ["filepath", "search_text", "replace_text"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "run_tests",
+                    "description": "Run the project tests.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "done",
+                    "description": "Signal that the task is complete.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "summary": {"type": "string"}
+                        },
+                        "required": ["summary"]
+                    }
+                }
+            }
+        ]
+
+    def ai_call(self, messages: list[dict], max_tokens: int, tools: list[dict] | None = None) -> tuple[str, list[dict]]:
         body = {
             "model": self.ai_model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": context},
-            ],
+            "messages": messages,
             "temperature": 0,
             "max_tokens": max_tokens,
             "stream": True,
-            "tools": [],
-            "tool_choice": "none",
         }
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
+        else:
+            body["tools"] = []
+            body["tool_choice"] = "none"
 
         data = json.dumps(body).encode("utf-8")
         url = self.ai_base_url.rstrip("/") + "/chat/completions"
@@ -908,8 +982,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         )
 
         content_parts: list[str] = []
-        tool_call_seen = False
-        raw_lines: list[str] = []
+        tool_calls_by_index: dict[int, dict] = {}
 
         try:
             with urllib.request.urlopen(request, timeout=900) as response:
@@ -918,8 +991,6 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
                 for raw in response:
                     line = raw.decode("utf-8", errors="replace")
-                    raw_lines.append(line)
-
                     stripped = line.strip()
                     if not stripped or stripped.startswith(":"):
                         continue
@@ -932,51 +1003,27 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                             obj = json.loads(payload)
                         except json.JSONDecodeError:
                             continue
-                        if self.collect_ai_choices(obj, content_parts):
-                            tool_call_seen = True
+                        self.collect_ai_choices(obj, content_parts, tool_calls_by_index)
                     else:
                         try:
                             obj = json.loads(stripped)
                         except json.JSONDecodeError:
                             continue
-                        if self.collect_ai_choices(obj, content_parts):
-                            tool_call_seen = True
+                        self.collect_ai_choices(obj, content_parts, tool_calls_by_index)
 
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise CommandError(
-                f"AI endpoint failed with HTTP status {exc.code}.")
+            raise CommandError(f"AI endpoint failed with HTTP status {exc.code}.")
         except urllib.error.URLError as exc:
             raise CommandError(f"AI endpoint request failed: {exc.reason}")
 
         content = "".join(content_parts).strip()
-        if content:
-            return content
-
-        if allow_retry:
-            write_debug(
-                "empty-content-retry.txt",
-                "The first response did not contain visible content. Retrying once with tool calls disabled and a stricter prompt.\n"
-                f"tool_call_seen={tool_call_seen}\n",
-            )
-            retry_system_prompt = (
-                system_prompt
-                + "\n\nImportant: do not call tools, do not use function calls, do not expose reasoning, "
-                + "and return only the final visible answer in normal assistant message content."
-            )
-            return self.ai_call(context, retry_system_prompt, max_tokens, allow_retry=False)
-
-        reason = "The model did not return visible message content."
-        if tool_call_seen:
-            reason += " It tried to call a tool instead."
-        raise CommandError(reason)
+        tool_calls = list(tool_calls_by_index.values())
+        return content, tool_calls
 
     @staticmethod
-    def collect_ai_choices(obj: Any, content_parts: list[str]) -> bool:
+    def collect_ai_choices(obj: dict, content_parts: list[str], tool_calls_by_index: dict) -> None:
         if not isinstance(obj, dict):
-            return False
-
-        tool_call_seen = False
+            return
 
         for choice in obj.get("choices") or []:
             if not isinstance(choice, dict):
@@ -985,137 +1032,189 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             delta = choice.get("delta") or {}
             message = choice.get("message") or {}
 
-            if delta.get("tool_calls") or message.get("tool_calls") or choice.get("tool_calls"):
-                tool_call_seen = True
-
             content = delta.get("content") or message.get("content") or choice.get("text")
             if content:
                 content_parts.append(str(content))
 
-        return tool_call_seen
+            tcs = delta.get("tool_calls") or message.get("tool_calls") or choice.get("tool_calls") or []
+            for tc in tcs:
+                idx = tc.get("index")
+                if idx is None:
+                    continue
+                if idx not in tool_calls_by_index:
+                    tool_calls_by_index[idx] = {
+                        "id": tc.get("id"),
+                        "type": tc.get("type", "function"),
+                        "function": {"name": tc.get("function", {}).get("name"), "arguments": ""}
+                    }
+                
+                fn = tc.get("function", {})
+                args = fn.get("arguments", "")
+                if args:
+                    tool_calls_by_index[idx]["function"]["arguments"] += args
+
+    def execute_tool(self, name: str, arguments: str) -> str:
+        try:
+            args = json.loads(arguments)
+        except json.JSONDecodeError:
+            return "Error: arguments must be valid JSON."
+
+        if name == "search_code":
+            query = args.get("query", "")
+            if not query:
+                return "Error: query is required."
+            res = run_cmd(["git", "grep", "-n", query], capture=True, check=False)
+            if res.returncode == 0:
+                return res.stdout or "No results found."
+            return "No results found or error executing search."
+            
+        elif name == "read_file":
+            filepath = args.get("filepath", "")
+            path = ROOT / filepath
+            if not path.exists():
+                return f"Error: file {filepath} not found."
+            return f"--- {filepath} ---\n" + read_text_limited(path, MAX_CONTEXT_FILE_BYTES)
+            
+        elif name == "edit_file":
+            filepath = args.get("filepath", "")
+            search_text = args.get("search_text", "")
+            replace_text = args.get("replace_text", "")
+            path = ROOT / filepath
+            
+            if not path.exists():
+                return f"Error: file {filepath} not found."
+            
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if search_text not in text:
+                return "Error: search_text not found in file. Make sure you provided the exact text including whitespace."
+            if text.count(search_text) > 1:
+                return "Error: search_text is not unique. Provide a larger block of text."
+                
+            new_text = text.replace(search_text, replace_text)
+            path.write_text(new_text, encoding="utf-8")
+            return f"Successfully edited {filepath}."
+            
+        elif name == "run_tests":
+            self.run_project_checks()
+            checks_summary = (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else ""
+            return checks_summary or "Checks ran but no output was captured."
+            
+        elif name == "done":
+            return "Task completed."
+            
+        return f"Error: Unknown tool {name}."
 
     def fix_loop(self) -> bool:
         start = time.time()
         self.fix_start_time = start
-        attempt = 1
 
         if not self.prepare_environment():
-            self.final_summary = (
-                "Failure type: install_failed\n\n"
-                "Install failed before I could safely edit.\n\n"
-                + (OUT / "install-summary.md").read_text(encoding="utf-8",
-                                                         errors="replace")
-            )
+            self.final_summary = "Failure type: install_failed\n\nInstall failed before I could safely edit.\n\n" + (OUT / "install-summary.md").read_text(encoding="utf-8", errors="replace")
             write_debug("final-summary.md", self.final_summary)
-            self.update_progress(
-                "❌ I stopped before editing.\n\nReason: install failed.\nA debug artifact will be uploaded if available.")
+            self.update_progress("❌ I stopped before editing.\n\nReason: install failed.\nA debug artifact will be uploaded if available.")
             return False
 
+        system = self.system_prompt_for_fix()
+        context = self.build_fix_context(1)
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": context}
+        ]
+        
+        attempt = 1
+        
         while attempt <= MAX_ATTEMPTS:
             elapsed = int(time.time() - start)
             if elapsed >= TIME_LIMIT_SECONDS:
-                self.final_summary = (
-                    "Failure type: time_limit\n\n"
-                    "Time limit reached before checks passed.\n\n"
-                    f"Attempts used: {attempt - 1}/{MAX_ATTEMPTS}\n"
-                    f"Time used: {elapsed}s/{TIME_LIMIT_SECONDS}s\n\n"
-                    f"Last feedback:\n{self.feedback}"
-                )
+                self.final_summary = f"Failure type: time_limit\n\nTime limit reached before checks passed.\n\nAttempts used: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s"
                 write_debug("final-summary.md", self.final_summary)
-                self.update_progress(
-                    f"⏱️ I reached the time limit.\n\nAttempts: {attempt - 1}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s")
+                self.update_progress(f"⏱️ I reached the time limit.\n\nAttempts: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s")
                 return False
 
-            print(f"Attempt {attempt}/{MAX_ATTEMPTS}")
             self.update_checklist(attempt, "calling", "working")
 
-            context = self.build_fix_context(attempt)
-            system = self.system_prompt_for_fix()
-
             try:
-                response = self.ai_call(context, system, MAX_TOKENS[self.mode])
-                write_debug("ai-response.txt", response)
+                content, tool_calls = self.ai_call(messages, MAX_TOKENS[self.mode], tools=self.get_tools())
             except Exception as exc:
                 self.feedback = f"Failure type: ai_endpoint\n\n{exc}"
                 write_debug("feedback.txt", self.feedback)
                 attempt += 1
                 continue
 
-            status = self.apply_ai_response(response)
-            if status == "needs_files":
-                self.append_needed_files_context()
-                self.feedback = f"Failure type: needs_more_files\n\nAttempt {attempt} requested more files. I provided the valid requested files."
-                write_debug("feedback.txt", self.feedback)
-                self.update_checklist(attempt, "calling", "working", "I provided the extra allowed files.")
-                attempt += 1
-                continue
+            if content:
+                messages.append({"role": "assistant", "content": content})
+                write_debug(f"ai-response-{attempt}.txt", content)
 
-            if status != "ok":
-                self.feedback = f"Attempt {attempt} returned invalid or non-applicable JSON.\n\n" + (
-                    OUT / "apply-error.txt").read_text(encoding="utf-8", errors="replace")
-                write_debug("feedback.txt", self.feedback)
-                self.update_checklist(attempt, "applying", "failed", "Invalid JSON format returned.")
-                attempt += 1
-                continue
+            if not tool_calls:
+                diff_check = run_cmd(["git", "diff", "--check"], capture=True, check=False)
+                if diff_check.returncode != 0:
+                    messages.append({"role": "user", "content": f"Warning: git diff --check failed:\n{diff_check.stdout}\nPlease fix whitespace errors using edit_file."})
+                    self.update_checklist(attempt, "applying", "failed", "git diff --check failed")
+                    attempt += 1
+                    continue
+                
+                self.update_checklist(attempt, "checking", "working")
+                if self.run_project_checks():
+                    self.final_summary = "I applied the fix successfully.\n\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")
+                    write_debug("final-summary.md", self.final_summary)
+                    self.update_checklist(attempt, "done", "success", "Checks passed! Committing changes.")
+                    return True
+                else:
+                    self.update_checklist(attempt, "checking", "failed", "Project checks failed. Will retry.")
+                    messages.append({"role": "user", "content": "The project checks failed. Please review the errors and fix them:\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")})
+                    attempt += 1
+                    continue
 
-            diff_check = run_cmd(["git", "diff", "--check"],
-                                 capture=True, check=False)
-            write_debug("diff-check.txt", diff_check.stdout or "")
-            if diff_check.returncode != 0:
-                self.feedback = f"Failure type: diff_check_failed\n\nAttempt {attempt} failed git diff --check.\n\n{diff_check.stdout}"
-                write_debug("feedback.txt", self.feedback)
-                self.update_checklist(attempt, "applying", "failed", "Changes failed git diff --check (formatting/whitespace).")
-                attempt += 1
-                continue
-
-            changed = git(["ls-files", "--modified",
-                          "--others", "--exclude-standard"])
-            write_debug("changed-files.txt", changed)
-            if not changed.strip():
-                self.feedback = f"Failure type: no_changes\n\nAttempt {attempt} did not produce real file changes."
-                write_debug("feedback.txt", self.feedback)
-                self.update_checklist(attempt, "applying", "failed", "No file changes produced.")
-                attempt += 1
-                continue
-
-            self.update_checklist(attempt, "checking", "working")
-
-            checks_ok = self.run_project_checks()
-            if checks_ok:
-                self.final_summary = (
-                    "I applied the fix successfully.\n\n"
-                    f"Attempts used: {attempt}/{MAX_ATTEMPTS}\n\n"
-                    "Summary:\n"
-                    + (OUT / "fix-summary.txt").read_text(encoding="utf-8",
-                                                          errors="replace")
-                    + "\n"
-                    + (OUT / "checks-summary.md").read_text(encoding="utf-8",
-                                                            errors="replace")
-                )
-                write_debug("final-summary.md", self.final_summary)
-                self.update_checklist(attempt, "done", "success", "Checks passed! Committing changes.")
-                return True
-
-            self.feedback = (
-                "Failure type: project_checks_failed\n\n"
-                f"Attempt {attempt} applied changes, but checks failed.\n\n"
-                + (OUT / "checks-summary.md").read_text(encoding="utf-8",
-                                                        errors="replace")
-                + "\n\nFix only the errors above while preserving the current behavior."
-            )
-            write_debug("feedback.txt", self.feedback)
-            self.update_checklist(attempt, "checking", "failed", "Project checks failed. Will retry.")
+            tool_call_messages = []
+            done_called = False
+            for tc in tool_calls:
+                name = tc.get("function", {}).get("name", "")
+                args = tc.get("function", {}).get("arguments", "")
+                
+                if name == "done":
+                    done_called = True
+                
+                self.update_checklist(attempt, "applying", "working", f"Running tool {name}")
+                result = self.execute_tool(name, args)
+                tool_call_messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.get("id"),
+                    "name": name,
+                    "content": result
+                })
+            
+            messages.append({
+                "role": "assistant",
+                "content": content or None,
+                "tool_calls": tool_calls
+            })
+            messages.extend(tool_call_messages)
+            
+            if done_called:
+                diff_check = run_cmd(["git", "diff", "--check"], capture=True, check=False)
+                if diff_check.returncode != 0:
+                    messages.append({"role": "user", "content": f"Warning: git diff --check failed:\n{diff_check.stdout}\nPlease fix whitespace errors using edit_file."})
+                    self.update_checklist(attempt, "applying", "failed", "git diff --check failed")
+                    attempt += 1
+                    continue
+                
+                self.update_checklist(attempt, "checking", "working")
+                if self.run_project_checks():
+                    self.final_summary = "I applied the fix successfully.\n\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")
+                    write_debug("final-summary.md", self.final_summary)
+                    self.update_checklist(attempt, "done", "success", "Checks passed! Committing changes.")
+                    return True
+                else:
+                    self.update_checklist(attempt, "checking", "failed", "Project checks failed. Will retry.")
+                    messages.append({"role": "user", "content": "The project checks failed. Please review the errors and fix them:\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")})
+                    attempt += 1
+                    continue
+            
             attempt += 1
 
-        self.final_summary = (
-            "Failure type: max_attempts\n\n"
-            "I could not reach a valid fix within the limits.\n\n"
-            f"Attempts used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\n\n"
-            f"Last feedback:\n{self.feedback}"
-        )
+        self.final_summary = f"I tried to solve this in a loop, but I could not get the checks to pass within the limits.\n\nAttempts used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.\n\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")
         write_debug("final-summary.md", self.final_summary)
-        self.update_progress(
-            f"❌ I could not get the checks to pass within the limits.\n\nAttempts used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.")
+        self.update_progress(f"❌ I could not get the checks to pass within the limits.\n\nAttempts used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.")
         return False
 
     def system_prompt_for_fix(self) -> str:
