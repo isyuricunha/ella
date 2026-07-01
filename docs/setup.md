@@ -4,7 +4,7 @@ Since this agent was built specifically for my workflow, setting it up in your o
 
 ## Prerequisites
 
-1. You must have access to an LLM endpoint (e.g., NVIDIA NIM, OpenAI, or a local self-hosted model) that supports the standard OpenAI Chat Completions API.
+1. You must have access to an LLM endpoint (e.g., OpenAI, Anthropic, or a local self-hosted model) that supports the standard OpenAI Chat Completions API.
 2. You need a **GitHub App Private Key** if you want the bot to be able to create PRs, push to Wikis, or edit issues as an App, OR you can simply use the default `${{ secrets.GITHUB_TOKEN }}` if you only need basic comment replies.
 
 ## 1. Copy the Files
@@ -41,8 +41,8 @@ Edit `.github/workflows/ai-agent.yml` to match your new bot's name and ensure it
 
 In your target repository, go to **Settings > Secrets and variables > Actions**, and add the following repository secrets:
 
-- `ELLA_AI_BASE_URL`: The base URL of your LLM API (e.g., `https://integrate.api.nvidia.com/v1`).
-- `ELLA_AI_MODEL`: The model name (e.g., `nvidia/nemotron-3-ultra-550b-a55b`).
+- `ELLA_AI_BASE_URL`: The base URL of your LLM API (e.g., `https://api.openai.com/v1`).
+- `ELLA_AI_MODEL`: The model name (e.g., `gpt-4o`).
 - `ELLA_AI_API_KEY`: Your API key for the LLM.
 - `ELLA_APP_CLIENT_ID` & `ELLA_APP_PRIVATE_KEY`: If using a GitHub App for authentication.
 

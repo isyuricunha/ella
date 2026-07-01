@@ -25,7 +25,7 @@ body:
     attributes:
       label: LLM Provider & Model
       description: What AI provider and model are you using?
-      placeholder: e.g. OpenAI GPT-4o, NVIDIA Nemotron-3
+      placeholder: e.g. OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet
     validations:
       required: true
   - type: textarea
