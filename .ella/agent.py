@@ -527,7 +527,7 @@ class Ella:
         self.prompt = ""
 
         for mode, prefix in commands:
-            if body == prefix or body.startswith(prefix + " "):
+            if body == prefix or body.startswith(prefix + " ") or body.startswith(prefix + "\n") or body.startswith(prefix + "\r\n"):
                 self.mode = mode
                 self.prompt = body[len(prefix):].strip()
                 break
