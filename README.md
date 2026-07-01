@@ -30,7 +30,7 @@ If you want to adapt my bot for your own projects, you can copy the `.ella/` fol
 
 1. Copy the `.ella` directory from this repository into your project root.
 2. Review and edit the `.ella/instructions.md` file to create **your own persona, name, and rules**.
-3. Copy the example workflow from `examples/.github/workflows/ella-mizuki.yml` into your project's `.github/workflows/` folder (and rename it to match your new bot).
+3. Copy the workflow from `.github/workflows/ella-mizuki.yml` into your project's `.github/workflows/` folder (and rename it to match your new bot).
 4. Add the necessary secrets to your GitHub repository (e.g., `ELLA_AI_API_KEY`, `ELLA_AI_BASE_URL`, `ELLA_APP_PRIVATE_KEY`).
 
 ## 📖 Documentation

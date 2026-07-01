@@ -28,11 +28,11 @@ You are [YOUR BOT NAME], an AI assistant for [YOUR REPO].
 
 ## 3. Configure the Workflow
 
-Copy the example GitHub Actions workflow into your project:
+Copy the GitHub Actions workflow into your project:
 
 ```bash
 mkdir -p .github/workflows
-cp /path/to/ella/examples/.github/workflows/ella-mizuki.yml .github/workflows/ai-agent.yml
+cp /path/to/ella/.github/workflows/ella-mizuki.yml .github/workflows/ai-agent.yml
 ```
 
 Edit `.github/workflows/ai-agent.yml` to match your new bot's name and ensure it triggers correctly.
