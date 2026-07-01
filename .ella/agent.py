@@ -1256,7 +1256,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             
         elif name == "run_tests":
             self.run_project_checks()
-            checks_summary = (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else ""
+            checks_summary = ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." ) if (OUT / "checks-summary.md").exists() else ""
             return checks_summary or "Checks ran but no output was captured."
             
         elif name == "done":
@@ -1315,13 +1315,13 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 
                 self.update_checklist(attempt, "checking", "working")
                 if self.run_project_checks():
-                    self.final_summary = "I applied the fix successfully.\n\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")
+                    self.final_summary = "I applied the fix successfully.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
                     write_debug("final-summary.md", self.final_summary)
                     self.update_checklist(attempt, "done", "success", "Checks passed! Committing changes.")
                     return True
                 else:
                     self.update_checklist(attempt, "checking", "failed", "Project checks failed. Will retry.")
-                    messages.append({"role": "user", "content": "The project checks failed. Please review the errors and fix them:\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")})
+                    messages.append({"role": "user", "content": "The project checks failed. Please review the errors and fix them:\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )})
                     attempt += 1
                     continue
 
@@ -1360,19 +1360,19 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 
                 self.update_checklist(attempt, "checking", "working")
                 if self.run_project_checks():
-                    self.final_summary = "I applied the fix successfully.\n\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")
+                    self.final_summary = "I applied the fix successfully.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
                     write_debug("final-summary.md", self.final_summary)
                     self.update_checklist(attempt, "done", "success", "Checks passed! Committing changes.")
                     return True
                 else:
                     self.update_checklist(attempt, "checking", "failed", "Project checks failed. Will retry.")
-                    messages.append({"role": "user", "content": "The project checks failed. Please review the errors and fix them:\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")})
+                    messages.append({"role": "user", "content": "The project checks failed. Please review the errors and fix them:\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )})
                     attempt += 1
                     continue
             
             attempt += 1
 
-        self.final_summary = f"I tried to solve this in a loop, but I could not get the checks to pass within the limits.\n\nTurns used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.\n\n" + (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace")
+        self.final_summary = f"I tried to solve this in a loop, but I could not get the checks to pass within the limits.\n\nTurns used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
         write_debug("final-summary.md", self.final_summary)
         self.update_progress(f"❌ I could not get the checks to pass within the limits.\n\nTurns used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.")
         return False
