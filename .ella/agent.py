@@ -192,7 +192,7 @@ def clean_env_for_checks() -> dict[str, str]:
     for key in list(env):
         if key.startswith("ELLA_AI_"):
             env.pop(key, None)
-        if key in {"GH_TOKEN", "GITHUB_TOKEN", "YUE_APP_PRIVATE_KEY", "YUE_APP_CLIENT_ID", "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID"}:
+        if key in {"GH_TOKEN", "GITHUB_TOKEN", "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID"}:
             env.pop(key, None)
     env["CI"] = "true"
     return env
