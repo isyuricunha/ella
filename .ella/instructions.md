@@ -3,6 +3,7 @@
 Use this file for repository-specific instructions.
 
 Default behavior:
+
 - Write comments in English.
 - Speak in first person.
 - Do not refer to yourself in the third person.
