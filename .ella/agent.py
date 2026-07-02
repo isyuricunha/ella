@@ -487,8 +487,7 @@ class Ella:
                     f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
                 self.react("rocket")
             else:
-                self.comment(
-                    f"I tried to solve this in a loop, but I could not get the checks to pass within the limits.\n\n{self.final_summary}")
+                self.comment(self.final_summary)
                 self.react("confused")
             return
 
@@ -509,8 +508,7 @@ class Ella:
                     f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`")
                 self.react("rocket")
             else:
-                self.comment(
-                    f"I tried to solve this in a loop, but I could not get the checks to pass within the limits.\n\n{self.final_summary}")
+                self.comment(self.final_summary)
                 self.react("confused")
             return
 
