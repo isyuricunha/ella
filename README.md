@@ -26,12 +26,38 @@
 
 ## 🚀 How to use (At your own risk)
 
-If you want to adapt my bot for your own projects, you can copy the `.ella/` folder into the root of your repository and configure the GitHub Actions workflow.
+> [!WARNING]
+> **This specific action (`isyuricunha/ella`) is hardcoded to only obey my GitHub user account.** If you want to use it, you **MUST fork** this repository and change the action reference to point to your own fork!
 
-1. Copy the `.ella` directory from this repository into your project root.
-2. Review and edit the `.ella/instructions.md` file to create **your own persona, name, and rules**.
-3. Copy the workflow from `.github/workflows/ella-mizuki.yml` into your project's `.github/workflows/` folder (and rename it to match your new bot).
-4. Add the necessary secrets to your GitHub repository (e.g., `ELLA_AI_API_KEY`, `ELLA_AI_BASE_URL`, `ELLA_APP_PRIVATE_KEY`).
+If you want to use Ella in your own projects, you can use her as a **GitHub Action**. You do not need to copy any script files to your repository.
+
+1. **Fork** this repository to your own account.
+2. Create a workflow file in your target repository, e.g., `.github/workflows/ella.yml`.
+3. Use your fork's action and pass your credentials:
+
+```yaml
+name: Ella Mizuki
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  ella:
+    runs-on: ubuntu-latest
+    env:
+      ELLA_AI_API_KEY: ${{ secrets.ELLA_AI_API_KEY }}
+      ELLA_AI_MODEL: gpt-4o
+    steps:
+      # REPLACE WITH YOUR GITHUB USERNAME AND FORK NAME
+      - uses: YOUR_USERNAME/YOUR_FORK_NAME@main
+        with:
+          ella_app_client_id: ${{ secrets.ELLA_APP_CLIENT_ID }}
+          ella_app_private_key: ${{ secrets.ELLA_APP_PRIVATE_KEY }}
+```
+
+4. **(Optional)** To customize her persona for your specific repository, create an `ELLA.md` or `AGENTS.md` file in the root of your repository with your extra instructions.
 
 ## 📖 Documentation
 

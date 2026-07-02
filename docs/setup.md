@@ -1,53 +1,66 @@
 # Installation & Setup Guide
 
-Since this agent was built specifically for my workflow, setting it up in your own repository requires you to manually copy and edit a few files.
+Setting up Ella in your repository is as easy as adding a single GitHub Actions workflow file. You do not need to copy any Python scripts or internal configuration folders!
 
 ## Prerequisites
 
 1. You must have access to an LLM endpoint (e.g., OpenAI, Anthropic, or a local self-hosted model) that supports the standard OpenAI Chat Completions API.
 2. You need a **GitHub App Private Key** if you want the bot to be able to create PRs, push to Wikis, or edit issues as an App, OR you can simply use the default `${{ secrets.GITHUB_TOKEN }}` if you only need basic comment replies.
 
-## 1. Copy the Files
+## 1. Configure the Workflow
 
-Copy the entire `.ella` directory from this repository into the root of your own repository.
+> [!WARNING]
+> **This specific action is hardcoded to only obey the `isyuricunha` GitHub user account.** If you want to use it, you **MUST fork** this repository and change the action reference to point to your own fork!
 
-```bash
-cp -r /path/to/ella/.ella /path/to/your/repo/.ella
+Create a new file in your repository at `.github/workflows/ella.yml` and add the following content:
+
+```yaml
+name: Ella Mizuki
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, synchronize]
+  workflow_run:
+    workflows: ["*"]
+    types: [completed]
+
+jobs:
+  ella:
+    runs-on: ubuntu-latest
+    env:
+      ELLA_AI_API_KEY: ${{ secrets.ELLA_AI_API_KEY }}
+      ELLA_AI_BASE_URL: ${{ secrets.ELLA_AI_BASE_URL }}
+      ELLA_AI_MODEL: ${{ secrets.ELLA_AI_MODEL }}
+    steps:
+      - name: Chamando a Ella
+        # REPLACE WITH YOUR GITHUB USERNAME AND FORK NAME
+        uses: YOUR_USERNAME/YOUR_FORK_NAME@main
+        with:
+          ella_app_client_id: ${{ secrets.ELLA_APP_CLIENT_ID }}
+          ella_app_private_key: ${{ secrets.ELLA_APP_PRIVATE_KEY }}
 ```
 
-## 2. Personalize the Agent
-
-Open `.ella/instructions.md` and rewrite the instructions.
-**Do not use the name Ella Mizuki**. Create your own persona!
-
-```markdown
-# Instructions
-You are [YOUR BOT NAME], an AI assistant for [YOUR REPO].
-...
-```
-
-## 3. Configure the Workflow
-
-Copy the GitHub Actions workflow into your project:
-
-```bash
-mkdir -p .github/workflows
-cp /path/to/ella/.github/workflows/ella-mizuki.yml .github/workflows/ai-agent.yml
-```
-
-Edit `.github/workflows/ai-agent.yml` to match your new bot's name and ensure it triggers correctly.
-
-## 4. Set GitHub Secrets
+## 2. Set GitHub Secrets
 
 In your target repository, go to **Settings > Secrets and variables > Actions**, and add the following repository secrets:
 
 - `ELLA_AI_BASE_URL`: The base URL of your LLM API (e.g., `https://api.openai.com/v1`).
 - `ELLA_AI_MODEL`: The model name (e.g., `gpt-4o`).
 - `ELLA_AI_API_KEY`: Your API key for the LLM.
-- `ELLA_APP_CLIENT_ID` & `ELLA_APP_PRIVATE_KEY`: If using a GitHub App for authentication.
+- `ELLA_APP_CLIENT_ID` & `ELLA_APP_PRIVATE_KEY`: GitHub App credentials.
 
-*(You should also rename these environment variables in `agent.py` and your workflow to match your new bot's name).*
+## 3. Personalize the Agent (Optional)
 
-## 5. Test the Bot
+Ella comes with a core persona already configured. However, if you want to provide repository-specific context or rules, you can create a file named `AGENTS.md` or `ELLA.md` in the root of your target repository. Ella will automatically detect these files and incorporate their instructions!
 
-Create an issue in your repository and tag your new bot, or include the trigger command (e.g., `/agent`). If everything is configured correctly, the workflow will run `python3 .ella/agent.py` and reply!
+```markdown
+# Repository Instructions
+When writing code here, always use strict TypeScript and prefer functional components.
+```
+
+## 4. Test the Bot
+
+Create an issue in your repository and use the command `/ella help`. If everything is configured correctly, the workflow will trigger the action, connect to your LLM, and reply!

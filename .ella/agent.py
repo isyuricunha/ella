@@ -17,6 +17,7 @@ from typing import Any
 
 
 ROOT = Path.cwd()
+AGENT_DIR = Path(__file__).parent.resolve()
 RUNNER_TEMP = Path(os.environ.get("RUNNER_TEMP", "/tmp"))
 OUT = RUNNER_TEMP / "ella-output"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -233,7 +234,7 @@ def safe_rel_path(path: str) -> bool:
 
 def load_ignore_patterns() -> list[str]:
     patterns = list(DEFAULT_IGNORE)
-    custom = ROOT / ".ella" / "ignore"
+    custom = AGENT_DIR / "ignore"
     if custom.exists():
         for line in custom.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip()
@@ -259,7 +260,7 @@ def is_ignored(path: str, patterns: list[str]) -> bool:
 
 
 def load_labels() -> list[dict[str, str]]:
-    labels_path = ROOT / ".ella" / "labels.json"
+    labels_path = AGENT_DIR / "labels.json"
     if not labels_path.exists():
         return SAFE_LABELS_DEFAULT
 
@@ -769,8 +770,13 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
     def load_repo_instructions(self) -> None:
         chunks: list[str] = []
+        
+        core_path = AGENT_DIR / "instructions.md"
+        if core_path.exists():
+            chunks.append(
+                f"\n----- INSTRUCTIONS: Core Agent Instructions -----\n{read_text_limited(core_path, 40_000)}\n----- END INSTRUCTIONS: Core Agent Instructions -----\n")
+
         for rel in [
-            ".ella/instructions.md",
             "AGENTS.md",
             "ELLA.md",
             ".github/copilot-instructions.md",

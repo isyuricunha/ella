@@ -1,0 +1,38 @@
+name: 'Ella Mizuki AI Agent'
+description: 'A powerful, autonomous AI agent that lives directly inside GitHub repositories.'
+branding:
+  icon: 'cpu'
+  color: 'purple'
+inputs:
+  ella_app_client_id:
+    description: 'GitHub App Client ID for authentication'
+    required: true
+  ella_app_private_key:
+    description: 'GitHub App Private Key for authentication'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Create app token
+      id: ella_token
+      uses: actions/create-github-app-token@v3
+      with:
+        client-id: ${{ inputs.ella_app_client_id }}
+        private-key: ${{ inputs.ella_app_private_key }}
+        permission-contents: write
+        permission-issues: write
+        permission-pull-requests: write
+        permission-actions: read
+        
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ steps.ella_token.outputs.token }}
+        fetch-depth: 0
+
+    - name: Run Ella
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.ella_token.outputs.token }}
+      run: |
+        python3 ${{ github.action_path }}/.ella/agent.py
