@@ -1115,6 +1115,34 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                         "required": ["summary"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "think",
+                    "description": "Use this tool to plan your next steps, write down your reasoning, or diagnose an error. This does not execute any code but helps you organize your thoughts before making changes.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "thought": {"type": "string", "description": "Your detailed reasoning or plan."}
+                        },
+                        "required": ["thought"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "run_terminal_command",
+                    "description": "Run a read-only terminal command (like a linter, type checker, or ls) to quickly validate the code state before calling run_tests. Do NOT use this to make changes to files.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "command": {"type": "string", "description": "The bash command to execute."}
+                        },
+                        "required": ["command"]
+                    }
+                }
             }
         ]
 
@@ -1294,11 +1322,27 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         elif name == "done":
             return "Task completed."
             
+        elif name == "think":
+            return "Thought recorded. You can now execute the next tool based on this plan."
+            
+        elif name == "run_terminal_command":
+            cmd = args.get("command", "")
+            if not cmd:
+                return "Error: command is required."
+            res = run_cmd(["bash", "-lc", cmd], capture=True, check=False)
+            output = res.stdout or ""
+            if len(output) > 8000:
+                output = output[:8000] + "\n...(truncated)"
+            return f"Exit code: {res.returncode}\n\nOutput:\n{output}" if output else f"Exit code: {res.returncode} (no output)"
+            
         return f"Error: Unknown tool {name}."
 
     def fix_loop(self) -> bool:
         start = time.time()
         self.fix_start_time = start
+        self.max_attempts = env_int("ELLA_MAX_ATTEMPTS", 25 + 2 * len(self.allowed_files))
+        if self.max_attempts > 300:
+            self.max_attempts = 300
 
         if not self.prepare_environment():
             self.final_summary = "Failure type: install_failed\n\nInstall failed before I could safely edit.\n\n" + (OUT / "install-summary.md").read_text(encoding="utf-8", errors="replace")
@@ -1316,12 +1360,19 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         attempt = 1
         consecutive_errors = 0
         
-        while attempt <= MAX_ATTEMPTS:
+        while attempt <= self.max_attempts:
             elapsed = int(time.time() - start)
             if elapsed >= TIME_LIMIT_SECONDS:
-                self.final_summary = f"Failure type: time_limit\n\nTime limit reached before I could finish the task.\n\nTurns used: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s"
+                self.final_summary = f"Failure type: time_limit\n\nTime limit reached before I could finish the task.\n\nTurns used: {attempt}/{self.max_attempts}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s"
+                try:
+                    wip_sha = self.commit_and_push_wip(f"time limit reached after {elapsed}s")
+                    if wip_sha:
+                        self.final_summary += f"\n\nPushed WIP commit `{wip_sha}` with partial progress."
+                except Exception as e:
+                    print(f"Failed to push WIP commit: {e}")
+                
                 write_debug("final-summary.md", self.final_summary)
-                self.update_progress(f"⏱️ I reached the time limit.\n\nTurns: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s")
+                self.update_progress(f"⏱️ I reached the time limit. {('WIP commit pushed.' if 'wip_sha' in locals() and wip_sha else '')}\n\nTurns: {attempt}/{self.max_attempts}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s")
                 return False
 
             self.update_checklist(attempt, "calling", "working")
@@ -1394,9 +1445,16 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             
             attempt += 1
 
-        self.final_summary = f"I reached the maximum limit of {MAX_ATTEMPTS} turns before I could finish the task.\n\nTurns used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
+        self.final_summary = f"I reached the maximum limit of {self.max_attempts} turns before I could finish the task.\n\nTurns used: {self.max_attempts}/{self.max_attempts}\nStatus: stopped without committing.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
+        try:
+            wip_sha = self.commit_and_push_wip("turn limit reached")
+            if wip_sha:
+                self.final_summary += f"\n\nPushed WIP commit `{wip_sha}` with partial progress."
+        except Exception as e:
+            print(f"Failed to push WIP commit: {e}")
+            
         write_debug("final-summary.md", self.final_summary)
-        self.update_progress(f"❌ I reached the turn limit ({MAX_ATTEMPTS}/{MAX_ATTEMPTS}) and had to stop without committing.")
+        self.update_progress(f"❌ I reached the turn limit ({self.max_attempts}/{self.max_attempts}). {('WIP commit pushed.' if 'wip_sha' in locals() and wip_sha else '')}")
         return False
 
     def system_prompt_for_fix(self) -> str:
@@ -1412,13 +1470,14 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "CRITICAL RULES:\n"
             "1. NEVER echo or summarize tool outputs to the user.\n"
             "2. If you need to do more work, call the next tool IMMEDIATELY.\n"
-            "3. If you have finished all your work, you MUST call the `done` tool.\n"
-            "4. NEVER output conversational text without calling a tool."
+            "3. If a tool fails (e.g. file not found, search text not matched), DO NOT blindly retry. Use the `think` tool to diagnose why it failed before trying again.\n"
+            "4. If you have finished all your work, you MUST call the `done` tool.\n"
+            "5. NEVER output conversational text without calling a tool."
         )
 
     def build_fix_context(self, attempt: int) -> str:
         lines: list[str] = [
-            f"You are running attempt {attempt} of {MAX_ATTEMPTS}.",
+            f"You are running attempt {attempt} of {self.max_attempts}.",
             f"Time limit: {TIME_LIMIT_SECONDS} seconds.",
             "",
             "User request:",
@@ -2044,6 +2103,29 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         path = OUT / "commit-message.txt"
         path.write_text(message, encoding="utf-8")
         return path
+
+    def commit_and_push_wip(self, reason: str) -> str | None:
+        git(["config", "user.name", self.commit_name])
+        git(["config", "user.email", self.commit_email])
+
+        changed = git(["ls-files", "--modified", "--others", "--exclude-standard"]).splitlines()
+        if not changed:
+            return None
+
+        subject = f"chore(wip): partial progress ({reason})"
+        body = f"The agent stopped before completing the task.\n\nReason: {reason}\n\nChanged files:\n" + "\n".join(f"- {f}" for f in changed)
+        
+        path = OUT / "wip-commit.txt"
+        path.write_text(f"{subject}\n\n{body}", encoding="utf-8")
+
+        run_cmd(["git", "add", "--", *changed], capture=True)
+        git(["commit", "--no-verify", "-F", str(path)])
+
+        branch = self.pr_info["headRefName"] if self.pr_info else getattr(self, "solve_branch", "")
+        if branch:
+            git(["push", "origin", f"HEAD:{branch}"])
+
+        return git(["rev-parse", "--short", "HEAD"]).strip()
 
     def commit_and_push_fix(self) -> str:
         if not self.pr_info:
