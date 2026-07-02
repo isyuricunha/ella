@@ -2141,6 +2141,8 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         content_resp, _ = self.ai_call(messages, MAX_TOKENS.get("triage", 8192))
         response = content_resp or ""
         
+        self.update_task_checklist("Issue Triage", [("Assigning user", True), ("Fetching issues", True), ("Generating response", True)])
+        
         import re
         match_duplicate = re.search(r"DUPLICATE_OF:\s*#(\d+)", response)
         match_labels = re.search(r"LABELS:\s*(.+)", response)
