@@ -1334,11 +1334,12 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 continue
 
             if content:
-                messages.append({"role": "assistant", "content": content})
                 write_debug(f"ai-response-{attempt}.txt", content)
 
             if not tool_calls:
-                messages.append({"role": "user", "content": "You didn't call any tools! You MUST use the `edit_file` tool to fix the code. DO NOT return plain text. Call the tool using the appropriate JSON structure."})
+                if content:
+                    messages.append({"role": "assistant", "content": content})
+                messages.append({"role": "user", "content": "You didn't call any tools! You MUST call a tool. If you need to make changes, use `edit_file`. If you are finished, you MUST call the `done` tool. DO NOT echo tool outputs or return plain text."})
                 self.update_checklist(attempt, "applying", "failed", "No tools called")
                 attempt += 1
                 continue
@@ -1397,8 +1398,12 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "You are Ella Mizuki, Yuri's friendly and capable GitHub AI assistant. "
             "Write in English in a warm, helpful tone. Always use the first-person perspective ('I'). "
             f"{action} "
-            "Use the provided tools to inspect and modify the repository."
-            "When you are finished or if the project checks pass, call the done tool."
+            "Use the provided tools to inspect and modify the repository.\n\n"
+            "CRITICAL RULES:\n"
+            "1. NEVER echo or summarize tool outputs to the user.\n"
+            "2. If you need to do more work, call the next tool IMMEDIATELY.\n"
+            "3. If you have finished all your work, you MUST call the `done` tool.\n"
+            "4. NEVER output conversational text without calling a tool."
         )
 
     def build_fix_context(self, attempt: int) -> str:
