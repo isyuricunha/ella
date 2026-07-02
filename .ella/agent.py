@@ -95,7 +95,7 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
-MAX_ATTEMPTS = env_int("ELLA_MAX_ATTEMPTS", 30)
+MAX_ATTEMPTS = env_int("ELLA_MAX_ATTEMPTS", 120)
 TIME_LIMIT_SECONDS = env_int("ELLA_TIME_LIMIT_SECONDS", 3600)
 
 MAX_CONTEXT_PR_DIFF_BYTES = env_int("ELLA_MAX_CONTEXT_PR_DIFF_BYTES", 500_000)
@@ -1314,6 +1314,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         ]
         
         attempt = 1
+        consecutive_errors = 0
         
         while attempt <= MAX_ATTEMPTS:
             elapsed = int(time.time() - start)
@@ -1330,7 +1331,10 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             except Exception as exc:
                 self.feedback = f"Failure type: ai_endpoint\n\n{exc}"
                 write_debug("feedback.txt", self.feedback)
-                attempt += 1
+                consecutive_errors += 1
+                if consecutive_errors >= 3:
+                    attempt += 1
+                    consecutive_errors = 0
                 continue
 
             if content:
@@ -1341,8 +1345,14 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                     messages.append({"role": "assistant", "content": content})
                 messages.append({"role": "user", "content": "You didn't call any tools! You MUST call a tool. If you need to make changes, use `edit_file`. If you are finished, you MUST call the `done` tool. DO NOT echo tool outputs or return plain text."})
                 self.update_checklist(attempt, "applying", "failed", "No tools called")
-                attempt += 1
+                consecutive_errors += 1
+                if consecutive_errors >= 3:
+                    attempt += 1
+                    consecutive_errors = 0
                 continue
+            
+            # Reset consecutive errors since we successfully got tool calls
+            consecutive_errors = 0
 
             tool_call_messages = []
             done_called = False
