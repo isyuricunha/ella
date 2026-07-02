@@ -1307,24 +1307,10 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 write_debug(f"ai-response-{attempt}.txt", content)
 
             if not tool_calls:
-                diff_check = run_cmd(["git", "diff", "--check"], capture=True, check=False)
-                if diff_check.returncode != 0:
-                    messages.append({"role": "user", "content": f"Warning: git diff --check failed:\n{diff_check.stdout}\nPlease fix whitespace errors using edit_file."})
-                    self.update_checklist(attempt, "applying", "failed", "git diff --check failed")
-                    attempt += 1
-                    continue
-                
-                self.update_checklist(attempt, "checking", "working")
-                if self.run_project_checks():
-                    self.final_summary = "I applied the fix successfully.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
-                    write_debug("final-summary.md", self.final_summary)
-                    self.update_checklist(attempt, "done", "success", "Checks passed! Committing changes.")
-                    return True
-                else:
-                    self.update_checklist(attempt, "checking", "failed", "Project checks failed. Will retry.")
-                    messages.append({"role": "user", "content": "The project checks failed. Please review the errors and fix them:\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )})
-                    attempt += 1
-                    continue
+                messages.append({"role": "user", "content": "You didn't call any tools! You MUST use the `edit_file` tool to fix the code. DO NOT return plain text. Call the tool using the appropriate JSON structure."})
+                self.update_checklist(attempt, "applying", "failed", "No tools called")
+                attempt += 1
+                continue
 
             tool_call_messages = []
             done_called = False
@@ -1352,13 +1338,6 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             messages.extend(tool_call_messages)
             
             if done_called:
-                diff_check = run_cmd(["git", "diff", "--check"], capture=True, check=False)
-                if diff_check.returncode != 0:
-                    messages.append({"role": "user", "content": f"Warning: git diff --check failed:\n{diff_check.stdout}\nPlease fix whitespace errors using edit_file."})
-                    self.update_checklist(attempt, "applying", "failed", "git diff --check failed")
-                    attempt += 1
-                    continue
-                
                 self.update_checklist(attempt, "checking", "working")
                 if self.run_project_checks():
                     self.final_summary = "I applied the fix successfully.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
@@ -1748,6 +1727,9 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             checks.append(
                 ("cargo-clippy", ["cargo", "clippy", "--", "-D", "warnings"]))
             checks.append(("cargo-test", ["cargo", "test"]))
+
+        if (ROOT / "test.py").exists():
+            checks.append(("test.py", [sys.executable, "test.py"]))
 
         if (ROOT / "pyproject.toml").exists() or (ROOT / "requirements.txt").exists() or (ROOT / "pytest.ini").exists():
             if self.python_module_exists("ruff") or command_exists("ruff"):
