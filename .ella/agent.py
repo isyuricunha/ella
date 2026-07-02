@@ -380,6 +380,20 @@ class Ella:
 
     def run(self) -> None:
         self.mask_secrets()
+        
+        # Prevent infinite loops: Do not respond to bots (including herself)
+        if self.comment_id:
+            user_login = self.comment_event.get("user", {}).get("login", "")
+            if "[bot]" in user_login or user_login == "ella-mizuki[bot]":
+                print(f"Skipping: ignoring comment from bot {user_login}")
+                sys.exit(0)
+                
+            # Restrict usage to repository owner
+            repo_owner = self.event.get("repository", {}).get("owner", {}).get("login", "")
+            if repo_owner and user_login != repo_owner:
+                print(f"Skipping: ignoring comment from unauthorized user {user_login}. Only repo owner can use the bot.")
+                sys.exit(0)
+                
         if self.comment_id:
             self.react("eyes")
         self.parse_command()
