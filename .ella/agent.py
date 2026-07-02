@@ -1150,7 +1150,8 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         )
 
         content_parts: list[str] = []
-        tool_calls_by_index: dict[int, dict] = {}
+        active_tool_calls: dict[str, dict] = {}
+        index_to_id: dict[int, str] = {}
 
         try:
             with urllib.request.urlopen(request, timeout=900) as response:
@@ -1171,13 +1172,13 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                             obj = json.loads(payload)
                         except json.JSONDecodeError:
                             continue
-                        self.collect_ai_choices(obj, content_parts, tool_calls_by_index)
+                        self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
                     else:
                         try:
                             obj = json.loads(stripped)
                         except json.JSONDecodeError:
                             continue
-                        self.collect_ai_choices(obj, content_parts, tool_calls_by_index)
+                        self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
 
         except urllib.error.HTTPError as exc:
             raise CommandError(f"AI endpoint failed with HTTP status {exc.code}.")
@@ -1185,11 +1186,11 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             raise CommandError(f"AI endpoint request failed: {exc.reason}")
 
         content = "".join(content_parts).strip()
-        tool_calls = list(tool_calls_by_index.values())
+        tool_calls = list(active_tool_calls.values())
         return content, tool_calls
 
     @staticmethod
-    def collect_ai_choices(obj: dict, content_parts: list[str], tool_calls_by_index: dict) -> None:
+    def collect_ai_choices(obj: dict, content_parts: list[str], active_tool_calls: dict, index_to_id: dict) -> None:
         if not isinstance(obj, dict):
             return
 
@@ -1206,20 +1207,32 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
             tcs = delta.get("tool_calls") or message.get("tool_calls") or choice.get("tool_calls") or []
             for tc in tcs:
-                idx = tc.get("index")
-                if idx is None:
-                    continue
-                if idx not in tool_calls_by_index:
-                    tool_calls_by_index[idx] = {
-                        "id": tc.get("id"),
-                        "type": tc.get("type", "function"),
-                        "function": {"name": tc.get("function", {}).get("name"), "arguments": ""}
+                idx = tc.get("index", 0)
+                tc_id = tc.get("id")
+                
+                if tc_id:
+                    index_to_id[idx] = tc_id
+                    if tc_id not in active_tool_calls:
+                        active_tool_calls[tc_id] = {
+                            "id": tc_id,
+                            "type": tc.get("type", "function"),
+                            "function": {"name": tc.get("function", {}).get("name"), "arguments": ""}
+                        }
+                
+                current_id = index_to_id.get(idx)
+                if not current_id:
+                    current_id = f"call_{idx}"
+                    index_to_id[idx] = current_id
+                    active_tool_calls[current_id] = {
+                        "id": current_id,
+                        "type": "function",
+                        "function": {"name": "", "arguments": ""}
                     }
                 
                 fn = tc.get("function", {})
                 args = fn.get("arguments", "")
                 if args:
-                    tool_calls_by_index[idx]["function"]["arguments"] += args
+                    active_tool_calls[current_id]["function"]["arguments"] += args
 
     def execute_tool(self, name: str, arguments: str) -> str:
         try:
