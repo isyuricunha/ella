@@ -95,7 +95,7 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
-MAX_ATTEMPTS = env_int("ELLA_MAX_ATTEMPTS", 15)
+MAX_ATTEMPTS = env_int("ELLA_MAX_ATTEMPTS", 30)
 TIME_LIMIT_SECONDS = env_int("ELLA_TIME_LIMIT_SECONDS", 3600)
 
 MAX_CONTEXT_PR_DIFF_BYTES = env_int("ELLA_MAX_CONTEXT_PR_DIFF_BYTES", 500_000)
@@ -1318,7 +1318,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         while attempt <= MAX_ATTEMPTS:
             elapsed = int(time.time() - start)
             if elapsed >= TIME_LIMIT_SECONDS:
-                self.final_summary = f"Failure type: time_limit\n\nTime limit reached before checks passed.\n\nTurns used: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s"
+                self.final_summary = f"Failure type: time_limit\n\nTime limit reached before I could finish the task.\n\nTurns used: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s"
                 write_debug("final-summary.md", self.final_summary)
                 self.update_progress(f"⏱️ I reached the time limit.\n\nTurns: {attempt}/{MAX_ATTEMPTS}\nTime used: {elapsed}s/{TIME_LIMIT_SECONDS}s")
                 return False
@@ -1384,9 +1384,9 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             
             attempt += 1
 
-        self.final_summary = f"I tried to solve this in a loop, but I could not get the checks to pass within the limits.\n\nTurns used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
+        self.final_summary = f"I reached the maximum limit of {MAX_ATTEMPTS} turns before I could finish the task.\n\nTurns used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
         write_debug("final-summary.md", self.final_summary)
-        self.update_progress(f"❌ I could not get the checks to pass within the limits.\n\nTurns used: {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\nStatus: stopped without committing.")
+        self.update_progress(f"❌ I reached the turn limit ({MAX_ATTEMPTS}/{MAX_ATTEMPTS}) and had to stop without committing.")
         return False
 
     def system_prompt_for_fix(self) -> str:
