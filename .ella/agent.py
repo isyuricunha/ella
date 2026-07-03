@@ -455,7 +455,7 @@ class Ella:
 
     def run(self) -> None:
         self.mask_secrets()
-        
+
         # Prevent infinite loops: Do not respond to bots (including herself)
         if self.comment_id:
             user_login = self.comment_event.get("user", {}).get("login", "")
@@ -464,7 +464,7 @@ class Ella:
             if "[bot]" in user_login or user_login == "ella-mizuki[bot]":
                 print(f"Skipping: ignoring comment from bot {user_login}")
                 sys.exit(0)
-                
+
             # Restrict usage to repository owner
             repo_owner = self.event.get("repository", {}).get("owner", {}).get("login", "")
             if not repo_owner:
@@ -472,165 +472,207 @@ class Ella:
             if user_login != repo_owner:
                 print(f"Skipping: ignoring comment from unauthorized user {user_login}. Only repo owner can use the bot.")
                 sys.exit(0)
-                
+
         if self.comment_id:
             self.react("eyes")
         self.parse_command()
 
-        if self.mode == "wiki":
-            try:
-                self.handle_wiki()
-            except Exception as exc:
-                print(f"AI call failed during wiki: {exc}")
-                self.comment("❌ I could not generate the wiki. The AI endpoint returned an error.")
-                self.react("confused")
+        handler = self._dispatch.get(self.mode)
+        if handler:
+            handler(self)
             return
 
-        if self.mode == "triage":
-            issue_author = self.issue.get("user", {}).get("login", "")
-            if "[bot]" in issue_author or issue_author == "ella-mizuki[bot]":
-                print(f"Skipping triage: issue created by bot {issue_author}")
-                return
-            self.validate_ai_config()
-            self.load_repo_instructions()
-            self.handle_triage()
-            return
+        self.comment("I do not recognize that command. Use `/ella help`.")
+        self.react("confused")
 
-        if self.mode == "help":
-            self.comment(self.help_text())
-            self.react("+1")
-            return
+    # --- Pre-dispatch validation shared by AI modes ---
 
-        if self.mode == "unknown":
-            self.comment("I do not recognize that command. Use `/ella help`.")
-            self.react("confused")
-            return
+    def _validate_and_load_context(self) -> str | None:
+        """Shared validation for modes that need AI config and PR/issue context.
 
-        if self.mode in {"ask", "pr", "review", "plan", "label", "fix", "continue", "solve", "heal"}:
-            self.validate_ai_config()
+        Returns an error message string if validation fails, or None if OK.
+        """
+        self.validate_ai_config()
 
-        if (not self.is_pr) and self.mode in {"pr", "review", "fix", "continue"}:
-            self.comment("That command needs to be used inside a PR.")
-            self.react("confused")
-            return
+        pr_only = {"pr", "review", "fix", "continue"}
+        issue_only = {"plan", "label", "solve"}
+
+        if (not self.is_pr) and self.mode in pr_only:
+            return "That command needs to be used inside a PR."
 
         if self.is_pr and self.mode == "solve":
-            self.comment(
-                "Use `/ella fix` inside a PR. Use `/ella solve` on an issue.")
-            self.react("confused")
-            return
+            return "Use `/ella fix` inside a PR. Use `/ella solve` on an issue."
 
-        if self.is_pr and self.mode in {"pr", "review", "plan", "label", "fix", "continue"}:
+        if self.is_pr and self.mode in (pr_only | issue_only) - {"solve"}:
             self.load_pr_metadata()
-
             if self.mode == "review" and not self.comment_id and self.pr_info and self.pr_info.get("isDraft"):
                 print("Skipping review: PR is in draft state")
-                return
+                return "__skip__"
 
-        if (not self.is_pr) and self.mode in {"plan", "label", "solve"}:
+        if (not self.is_pr) and self.mode in issue_only:
             self.load_issue_metadata()
 
-        if self.mode in {"ask", "pr", "review", "plan"}:
-            try:
-                response = self.handle_read_only()
-            except Exception as exc:
-                print(f"AI call failed during {self.mode}: {exc}")
-                self.comment("❌ I could not generate a response. The AI endpoint returned an error.")
+        return None
+
+    # --- Mode handlers ---
+
+    def _handle_wiki(self) -> None:
+        try:
+            self.handle_wiki()
+        except Exception as exc:
+            print(f"AI call failed during wiki: {exc}")
+            self.comment("❌ I could not generate the wiki. The AI endpoint returned an error.")
+            self.react("confused")
+
+    def _handle_triage(self) -> None:
+        issue_author = self.issue.get("user", {}).get("login", "")
+        if "[bot]" in issue_author or issue_author == "ella-mizuki[bot]":
+            print(f"Skipping triage: issue created by bot {issue_author}")
+            return
+        self.validate_ai_config()
+        self.load_repo_instructions()
+        self.handle_triage()
+
+    def _handle_help(self) -> None:
+        self.comment(self.help_text())
+        self.react("+1")
+
+    def _handle_read_only(self) -> None:
+        error = self._validate_and_load_context()
+        if error:
+            if error != "__skip__":
+                self.comment(error)
                 self.react("confused")
-                return
-            if self.mode == "review":
-                try:
-                    data = parse_jsonish(response)
-                    summary = data.get("summary", "")
-                    comments = data.get("comments", [])
-                    if summary or comments:
-                        self.post_inline_review(summary, comments)
-                        self.react("+1")
-                        return
-                except Exception as e:
-                    print(f"Failed to parse review JSON: {e}")
-                    self.comment("I tried to post an inline review but could not parse the model response as valid JSON. Here is the raw output:\n\n" + response)
-                    self.react("confused")
+            return
+        try:
+            response = self.handle_read_only()
+        except Exception as exc:
+            print(f"AI call failed during {self.mode}: {exc}")
+            self.comment("❌ I could not generate a response. The AI endpoint returned an error.")
+            self.react("confused")
+            return
+        if self.mode == "review":
+            try:
+                data = parse_jsonish(response)
+                summary = data.get("summary", "")
+                comments = data.get("comments", [])
+                if summary or comments:
+                    self.post_inline_review(summary, comments)
+                    self.react("+1")
                     return
-            self.comment(response)
-            self.react("+1")
-            return
-
-        if self.mode == "label":
-            try:
-                self.handle_label()
-            except Exception as exc:
-                print(f"AI call failed during label: {exc}")
-                self.comment("❌ I could not classify labels. The AI endpoint returned an error.")
+            except Exception as e:
+                print(f"Failed to parse review JSON: {e}")
+                self.comment("I tried to post an inline review but could not parse the model response as valid JSON. Here is the raw output:\n\n" + response)
                 self.react("confused")
                 return
-            self.react("+1")
-            return
+        self.comment(response)
+        self.react("+1")
 
-        if self.mode in {"fix", "continue"}:
-            if self.pr_info and self.pr_info.get("isCrossRepository") is True:
+    def _handle_label(self) -> None:
+        error = self._validate_and_load_context()
+        if error:
+            if error != "__skip__":
+                self.comment(error)
+                self.react("confused")
+            return
+        try:
+            self.handle_label()
+        except Exception as exc:
+            print(f"AI call failed during label: {exc}")
+            self.comment("❌ I could not classify labels. The AI endpoint returned an error.")
+            self.react("confused")
+            return
+        self.react("+1")
+
+    def _handle_fix(self) -> None:
+        error = self._validate_and_load_context()
+        if error:
+            if error != "__skip__":
+                self.comment(error)
+                self.react("confused")
+            return
+        if self.pr_info and self.pr_info.get("isCrossRepository") is True:
+            self.comment(
+                "For security reasons, I can only commit to branches inside this repository. If you are an external contributor, please ask a maintainer to pull your branch here first!")
+            self.react("confused")
+            return
+        self.checkout_pr_branch()
+        self.load_repo_instructions()
+        self.allowed_files = self.get_pr_changed_files()
+        self.create_progress_comment(
+            "👀 I started working on this PR.\n\n"
+            f"Status: preparing context.\n"
+            f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+            if self.mode == "fix"
+            else
+            "👀 I will continue trying to fix this PR.\n\n"
+            f"Status: preparing context.\n"
+            f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+        )
+        success = self.fix_loop()
+        if success:
+            commit_sha = self.commit_and_push_fix()
+            if commit_sha:
                 self.comment(
-                    "For security reasons, I can only commit to branches inside this repository. If you are an external contributor, please ask a maintainer to pull your branch here first!")
-                self.react("confused")
-                return
-            self.checkout_pr_branch()
-            self.load_repo_instructions()
-            self.allowed_files = self.get_pr_changed_files()
-            self.create_progress_comment(
-                "👀 I started working on this PR.\n\n"
-                f"Status: preparing context.\n"
-                f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
-                if self.mode == "fix"
-                else
-                "👀 I will continue trying to fix this PR.\n\n"
-                f"Status: preparing context.\n"
-                f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
-            )
-            success = self.fix_loop()
-            if success:
-                commit_sha = self.commit_and_push_fix()
-                if commit_sha:
-                    self.comment(
-                        f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
-                    self.react("rocket")
-                else:
-                    self.comment(
-                        f"All checks passed and no uncommitted changes remain.\n\n{self.final_summary}")
-                    self.react("rocket")
+                    f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
+                self.react("rocket")
             else:
-                self.comment(self.final_summary)
+                self.comment(
+                    f"All checks passed and no uncommitted changes remain.\n\n{self.final_summary}")
+                self.react("rocket")
+        else:
+            self.comment(self.final_summary)
+            self.react("confused")
+
+    def _handle_solve(self) -> None:
+        error = self._validate_and_load_context()
+        if error:
+            if error != "__skip__":
+                self.comment(error)
                 self.react("confused")
             return
-
-        if self.mode == "solve":
-            self.checkout_solve_branch()
-            self.load_repo_instructions()
-            self.allowed_files = self.get_repo_files()
-            self.create_progress_comment(
-                "👀 I started working on this issue.\n\n"
-                f"Status: preparing branch and context.\n"
-                f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
-            )
-            success = self.fix_loop()
-            if success:
-                commit_sha = self.commit_and_push_solve()
-                if commit_sha:
-                    pr_url = self.create_solve_pr()
-                    self.comment(
-                        f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`")
-                    self.react("rocket")
-                else:
-                    self.comment(
-                        f"All checks passed but no changes were needed.\n\n{self.final_summary}")
-                    self.react("rocket")
+        self.checkout_solve_branch()
+        self.load_repo_instructions()
+        self.allowed_files = self.get_repo_files()
+        self.create_progress_comment(
+            "👀 I started working on this issue.\n\n"
+            f"Status: preparing branch and context.\n"
+            f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+        )
+        success = self.fix_loop()
+        if success:
+            commit_sha = self.commit_and_push_solve()
+            if commit_sha:
+                pr_url = self.create_solve_pr()
+                self.comment(
+                    f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`")
+                self.react("rocket")
             else:
-                self.comment(self.final_summary)
-                self.react("confused")
-            return
+                self.comment(
+                    f"All checks passed but no changes were needed.\n\n{self.final_summary}")
+                self.react("rocket")
+        else:
+            self.comment(self.final_summary)
+            self.react("confused")
 
-        if self.mode == "heal":
-            self.handle_heal()
-            return
+    def _handle_heal(self) -> None:
+        self.handle_heal()
+
+    # --- Dispatch table ---
+    _dispatch: dict[str, Any] = {
+        "wiki": _handle_wiki,
+        "triage": _handle_triage,
+        "help": _handle_help,
+        "ask": _handle_read_only,
+        "pr": _handle_read_only,
+        "review": _handle_read_only,
+        "plan": _handle_read_only,
+        "label": _handle_label,
+        "fix": _handle_fix,
+        "continue": _handle_fix,
+        "solve": _handle_solve,
+        "heal": _handle_heal,
+    }
     def mask_secrets(self) -> None:
         secrets = [
             "GH_TOKEN", "GITHUB_TOKEN",
