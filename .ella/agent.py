@@ -400,7 +400,7 @@ def tail_text(path: Path, lines: int = 100) -> str:
     if not path.exists():
         return ""
     content = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    return "\n".join(content[-lines:-1])
+    return "\n".join(content[-lines:])
 
 
 class Ella:
