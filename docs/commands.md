@@ -3,8 +3,8 @@
 Slash commands I can use to trigger Ella. For security, she only responds to my GitHub account (`isyuricunha`).
 
 ### General
-- `/ella ask <question>`: Answers questions based on issue/PR context.
 - `/ella help`: Lists available commands.
+- `/ella ask <question>`: Answers questions based on issue/PR context.
 - `/ella label`: Applies the most relevant labels defined in `.ella/labels.json`.
 - `/ella wiki`: Reads the entire codebase and generates a comprehensive, multi-page GitHub Wiki.
 

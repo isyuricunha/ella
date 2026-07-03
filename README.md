@@ -14,8 +14,11 @@
 ## ✨ Features
 
 - 🕵️‍♀️ **Issue Triage**: Automatically detects duplicate issues, assigns labels, and replies.
-- 📚 **Wiki Generation**: Reads the entire codebase and generates a comprehensive, multi-page GitHub Wiki.
 - 💻 **Pull Request Reviews**: Analyzes diffs for bugs, security issues, and missing tests. Runs automatically when a PR is opened or synchronized, or on demand via `/ella review`.
+- 🔧 **Autonomous Fixes**: Fixes PRs by committing directly to the branch (`/ella fix`), or solves issues by creating a branch and opening a PR (`/ella solve`).
+- 📋 **Plans & Labels**: Writes implementation plans (`/ella plan`) and applies relevant labels (`/ella label`).
+- 💬 **Q&A**: Answers questions based on issue/PR context (`/ella ask`, `/ella pr`).
+- 📚 **Wiki Generation**: Reads the entire codebase and generates a comprehensive, multi-page GitHub Wiki.
 - ⚡ **Fully Localized**: Runs as a single `agent.py` script orchestrated entirely by GitHub Actions.
 
 ## ⚠️ Important Notice
@@ -43,6 +46,11 @@ on:
     types: [opened]
   issue_comment:
     types: [created]
+  pull_request_target:
+    types: [opened, synchronize]
+  workflow_run:
+    workflows: ["*"]
+    types: [completed]
 
 jobs:
   ella:
@@ -51,6 +59,8 @@ jobs:
       ELLA_AI_API_KEY: ${{ secrets.ELLA_AI_API_KEY }}
       ELLA_AI_BASE_URL: ${{ secrets.ELLA_AI_BASE_URL }}
       ELLA_AI_MODEL: ${{ secrets.ELLA_AI_MODEL }}
+      YURI_COMMIT_NAME: ${{ secrets.YURI_COMMIT_NAME }}
+      YURI_COMMIT_EMAIL: ${{ secrets.YURI_COMMIT_EMAIL }}
     steps:
       # REPLACE WITH YOUR GITHUB USERNAME AND FORK NAME
       - uses: YOUR_USERNAME/YOUR_FORK_NAME@main
