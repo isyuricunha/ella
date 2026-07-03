@@ -451,7 +451,9 @@ class Ella:
                         return
                 except Exception as e:
                     print(f"Failed to parse review JSON: {e}")
-                    pass
+                    self.comment("I tried to post an inline review but could not parse the model response as valid JSON. Here is the raw output:\n\n" + response)
+                    self.react("confused")
+                    return
             self.comment(response)
             self.react("+1")
             return
