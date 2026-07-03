@@ -357,7 +357,10 @@ class Ella:
         if not event_path:
             raise RuntimeError("GITHUB_EVENT_PATH is missing")
 
-        self.event = json.loads(Path(event_path).read_text(encoding="utf-8"))
+        try:
+            self.event = json.loads(Path(event_path).read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            raise RuntimeError(f"Failed to read or parse event file: {e}")
         self.repo = os.environ["GITHUB_REPOSITORY"]
         self.run_id = os.environ.get("GITHUB_RUN_ID", "") or f"local{int(time.time()) % 1000000}"
         self.issue_number = -1
@@ -400,13 +403,17 @@ class Ella:
         # Prevent infinite loops: Do not respond to bots (including herself)
         if self.comment_id:
             user_login = self.comment_event.get("user", {}).get("login", "")
+            if not user_login:
+                raise RuntimeError("User login not found in comment event")
             if "[bot]" in user_login or user_login == "ella-mizuki[bot]":
                 print(f"Skipping: ignoring comment from bot {user_login}")
                 sys.exit(0)
                 
             # Restrict usage to repository owner
             repo_owner = self.event.get("repository", {}).get("owner", {}).get("login", "")
-            if repo_owner and user_login != repo_owner:
+            if not repo_owner:
+                raise RuntimeError("Repository owner not found in event")
+            if user_login != repo_owner:
                 print(f"Skipping: ignoring comment from unauthorized user {user_login}. Only repo owner can use the bot.")
                 sys.exit(0)
                 
@@ -534,13 +541,15 @@ class Ella:
             self.handle_heal()
             return
     def mask_secrets(self) -> None:
-        for value in [
-            os.environ.get("ELLA_AI_BASE_URL", ""),
-            os.environ.get("ELLA_AI_MODEL", ""),
-            os.environ.get("ELLA_AI_API_KEY", ""),
-            os.environ.get("YURI_COMMIT_NAME", ""),
-            os.environ.get("YURI_COMMIT_EMAIL", ""),
-        ]:
+        secrets = [
+            "ELLA_AI_BASE_URL",
+            "ELLA_AI_MODEL",
+            "ELLA_AI_API_KEY",
+            "YURI_COMMIT_NAME",
+            "YURI_COMMIT_EMAIL",
+        ]
+        for secret in secrets:
+            value = os.environ.get(secret, "")
             if value:
                 print(f"::add-mask::{value}")
 
@@ -1176,9 +1185,6 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
-        else:
-            body["tools"] = []
-            body["tool_choice"] = "none"
 
         data = json.dumps(body).encode("utf-8")
         url = self.ai_base_url.rstrip("/") + "/chat/completions"
@@ -1791,7 +1797,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 cmd = ["mypy", "."] if command_exists(
                     "mypy") else [sys.executable, "-m", "mypy", "."]
                 checks.append(("python-mypy", cmd))
-            if self.python_module_exists("pytest") or command_exists("pytest") or any((ROOT / x).exists() for x in ["tests", "test"]):
+            if self.python_module_exists("pytest") or command_exists("pytest"):
                 cmd = ["pytest"] if command_exists("pytest") else [
                     sys.executable, "-m", "pytest"]
                 checks.append(("python-pytest", cmd))
