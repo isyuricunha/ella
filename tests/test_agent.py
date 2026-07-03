@@ -60,7 +60,7 @@ class TestEnvInt:
 
     def test_default_when_zero_or_negative(self, monkeypatch):
         monkeypatch.setenv("ELLA_TEST_VAR", "0")
-        assert agent.env_int("ELLA_TEST_VAR", 99) == 0
+        assert agent.env_int("ELLA_TEST_VAR", 99) == 99
         monkeypatch.setenv("ELLA_TEST_VAR", "-5")
         assert agent.env_int("ELLA_TEST_VAR", 99) == 99
 
