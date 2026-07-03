@@ -4,8 +4,9 @@ My personal AI agent integrated via GitHub Actions (`.github/workflows/ella-mizu
 
 ## Core Capabilities
 - **Triage**: Automatically assigns new issues to me, checks for duplicates, and replies.
+- **Wiki Generation**: Reads the codebase and generates a structured, multi-page GitHub Wiki.
 - **Autonomous Coding**: Fixes issues or PRs, clones the repo, and opens PRs on my behalf.
-- **Review**: Reviews code, answers questions, and applies labels.
+- **Review**: Reviews code automatically on PR open/synchronize, or on demand via `/ella review`. Answers questions and applies labels.
 
 ## Documentation Index
 - [Commands](./commands.md): List of my `/ella` slash commands.

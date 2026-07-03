@@ -6,11 +6,12 @@ Slash commands I can use to trigger Ella. For security, she only responds to my 
 - `/ella ask <question>`: Answers questions based on issue/PR context.
 - `/ella help`: Lists available commands.
 - `/ella label`: Applies the most relevant labels defined in `.ella/labels.json`.
+- `/ella wiki`: Reads the entire codebase and generates a comprehensive, multi-page GitHub Wiki.
 
 ### Pull Requests
 *(Only work in PR comments)*
 - `/ella pr <request>`: Short PR analysis (changes, risks, safe to merge).
-- `/ella review <request>`: Strict code review (bugs, security, missing tests).
+- `/ella review <request>`: Strict code review (bugs, security, missing tests). Also runs automatically when a PR is opened or synchronized.
 - `/ella plan <request>`: Writes an implementation plan without modifying code.
 - `/ella fix <request>`: Checks out the branch, applies a fix, and commits directly.
 - `/ella continue <request>`: Continues trying to fix if the time/attempt limit was hit.

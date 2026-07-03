@@ -23,7 +23,7 @@ My required repository secrets (`Settings > Secrets and variables > Actions`):
 Optional secrets to fine-tune her limits:
 - `ELLA_MAX_ATTEMPTS`: Max loops for fixes (Default: 25 + 2 per allowed file, capped at 300).
 - `ELLA_TIME_LIMIT_SECONDS`: Max execution time (Default: 3600s).
-- `ELLA_MAX_TOKENS_*`: Limits for specific modes (`_ASK`, `_PR`, `_FIX`, `_SOLVE`, `_TRIAGE`).
+- `ELLA_MAX_TOKENS_*`: Limits for specific modes (`_ASK`, `_PR`, `_REVIEW`, `_PLAN`, `_LABEL`, `_FIX`, `_CONTINUE`, `_SOLVE`, `_HEAL`, `_TRIAGE`).
 - `ELLA_MAX_CONTEXT_*_BYTES`: Limits raw diff/file data context size.
 
 ## Files
@@ -31,3 +31,4 @@ Optional secrets to fine-tune her limits:
 - `.ella/instructions.md`: Custom system instructions I feed to her on every run.
 - `.ella/labels.json`: Definitions for `/ella label`.
 - `.ella/ignore`: Globs/patterns of files she should ignore.
+- `.ella/checks.sh`: Optional custom checks script (see `.ella/checks.sh.example`). When present, it replaces the auto-detected install/check commands.
