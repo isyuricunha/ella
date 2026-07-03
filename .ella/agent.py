@@ -852,36 +852,37 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
     def update_checklist(self, attempt: int, step: str, status: str, detail: str = "") -> None:
         elapsed = int(time.time() - getattr(self, "fix_start_time", time.time()))
-        
+
         lines = [
-            f"### 🤖 Ella is working on it...",
+            "### 🤖 Ella is working on it...\n",
             f"**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes",
             f"**Time elapsed:** {elapsed}s",
-            ""
         ]
-        
-        for a in range(1, attempt + 1):
-            if a < attempt:
-                lines.append(f"- ❌ Turn {a} (Checks failed, refining...)")
-            else:
-                lines.append(f"- [{' ' if status == 'working' else 'x'}] Turn {a}")
-                lines.append(f"  - [x] Preparing context")
-                if step == "calling":
-                    lines.append(f"  - [{' ' if status == 'working' else 'x'}] Calling AI model")
-                elif step == "applying":
-                    lines.append(f"  - [x] Calling AI model")
-                    lines.append(f"  - [{' ' if status == 'working' else 'x'}] Applying changes")
-                elif step == "checking":
-                    lines.append(f"  - [x] Calling AI model")
-                    lines.append(f"  - [x] Applying changes")
-                    lines.append(f"  - [{' ' if status == 'working' else 'x'}] Running project checks")
-                elif step == "done":
-                    lines.append(f"  - [x] Calling AI model")
-                    lines.append(f"  - [x] Applying changes")
-                    lines.append(f"  - [x] Running project checks")
-                
-                if detail:
-                    lines.append(f"\n> {detail}")
+
+        failed = attempt - 1
+        if failed > 0:
+            lines.append(f"**Progress:** {failed} failed attempt{'s' if failed != 1 else ''} so far.")
+
+        lines.append("")
+
+        lines.append(f"- [{' ' if status == 'working' else 'x'}] Turn {attempt}")
+        lines.append("  - [x] Preparing context")
+        if step == "calling":
+            lines.append(f"  - [{' ' if status == 'working' else 'x'}] Calling AI model")
+        elif step == "applying":
+            lines.append("  - [x] Calling AI model")
+            lines.append(f"  - [{' ' if status == 'working' else 'x'}] Applying changes")
+        elif step == "checking":
+            lines.append("  - [x] Calling AI model")
+            lines.append("  - [x] Applying changes")
+            lines.append(f"  - [{' ' if status == 'working' else 'x'}] Running project checks")
+        elif step == "done":
+            lines.append("  - [x] Calling AI model")
+            lines.append("  - [x] Applying changes")
+            lines.append("  - [x] Running project checks")
+
+        if detail:
+            lines.append(f"\n> {detail}")
 
         self.update_progress("\n".join(lines))
 
