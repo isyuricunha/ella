@@ -97,6 +97,10 @@ def env_int(name: str, default: int) -> int:
 
 TIME_LIMIT_SECONDS = env_int("ELLA_TIME_LIMIT_SECONDS", 3600)
 
+COMMIT_SUBJECT_RE = re.compile(
+    r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9._/-]+\))?!?: .+"
+)
+
 MAX_CONTEXT_PR_DIFF_BYTES = env_int("ELLA_MAX_CONTEXT_PR_DIFF_BYTES", 500_000)
 MAX_CONTEXT_FILE_BYTES = env_int("ELLA_MAX_CONTEXT_FILE_BYTES", 120_000)
 MAX_CONTEXT_REQUESTED_FILE_BYTES = env_int(
@@ -1989,7 +1993,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             if len(subject) > 72:
                 subject = subject[:69].rstrip(" .") + "..."
 
-            if not re.match(r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9._/-]+\))?!?: .+", subject):
+            if not COMMIT_SUBJECT_RE.match(subject):
                 raise ValueError(f"Commit subject is not conventional: {subject}")
 
             if not body:
