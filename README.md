@@ -15,7 +15,7 @@
 
 - 🕵️‍♀️ **Issue Triage**: Automatically detects duplicate issues, assigns labels, and replies.
 - 📚 **Wiki Generation**: Reads the entire codebase and generates a comprehensive, multi-page GitHub Wiki.
-- 💻 **Pull Request Reviews**: (Coming soon) Analyzes diffs and provides code reviews.
+- 💻 **Pull Request Reviews**: Analyzes diffs for bugs, security issues, and missing tests. Runs automatically when a PR is opened or synchronized, or on demand via `/ella review`.
 - ⚡ **Fully Localized**: Runs as a single `agent.py` script orchestrated entirely by GitHub Actions.
 
 ## ⚠️ Important Notice
@@ -48,7 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ELLA_AI_API_KEY: ${{ secrets.ELLA_AI_API_KEY }}
-      ELLA_AI_MODEL: gpt-4o
+      ELLA_AI_BASE_URL: ${{ secrets.ELLA_AI_BASE_URL }}
+      ELLA_AI_MODEL: ${{ secrets.ELLA_AI_MODEL }}
     steps:
       # REPLACE WITH YOUR GITHUB USERNAME AND FORK NAME
       - uses: YOUR_USERNAME/YOUR_FORK_NAME@main
