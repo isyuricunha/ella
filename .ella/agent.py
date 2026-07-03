@@ -528,9 +528,14 @@ class Ella:
             success = self.fix_loop()
             if success:
                 commit_sha = self.commit_and_push_fix()
-                self.comment(
-                    f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
-                self.react("rocket")
+                if commit_sha:
+                    self.comment(
+                        f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
+                    self.react("rocket")
+                else:
+                    self.comment(
+                        f"All checks passed and no uncommitted changes remain.\n\n{self.final_summary}")
+                    self.react("rocket")
             else:
                 self.comment(self.final_summary)
                 self.react("confused")
@@ -1087,7 +1092,10 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         success = self.fix_loop()
         if success:
             commit_sha = self.commit_and_push_fix()
-            self.comment(f"🚑 I successfully auto-healed the CI pipeline!\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
+            if commit_sha:
+                self.comment(f"🚑 I successfully auto-healed the CI pipeline!\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
+            else:
+                self.comment(f"🚑 All checks passed and no uncommitted changes remain.\n\n{self.final_summary}")
             self.react("rocket")
         else:
             self.comment(f"🚑 I tried to auto-heal the CI, but I couldn't get the checks to pass within the limits.\n\n{self.final_summary}")
@@ -2099,7 +2107,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         changed = git(["ls-files", "--modified", "--others",
                       "--exclude-standard"]).splitlines()
         if not changed:
-            raise RuntimeError("No changed files to commit")
+            return ""
 
         commit_message_path = self.write_commit_message_file(changed)
 
