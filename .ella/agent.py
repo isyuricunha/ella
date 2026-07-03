@@ -719,7 +719,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "--repo",
             self.repo,
             "--json",
-            "title,body,author,baseRefName,headRefName,headRepository,headRepositoryOwner,isCrossRepository,isDraft,state,url,comments",
+            "title,body,author,baseRefName,headRefName,headRefOid,headRepository,headRepositoryOwner,isCrossRepository,isDraft,state,url,comments",
         ])
         self.pr_info = json.loads(raw)
         write_debug("pr-info.json", json.dumps(self.pr_info, indent=2))
@@ -2067,7 +2067,11 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         )
 
         try:
-            response = self.ai_call("\n".join(context_lines), system_prompt, 1200)
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "\n".join(context_lines)},
+            ]
+            response, _ = self.ai_call(messages, 1200)
             data = parse_jsonish(response)
 
             subject = str(data.get("subject", "")).strip()
