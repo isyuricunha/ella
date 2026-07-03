@@ -1359,6 +1359,14 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         max_attempts = env_int("ELLA_MAX_ATTEMPTS", 25 + 2 * len(self.allowed_files))
         return min(max_attempts, 300)
 
+    @staticmethod
+    def _bump_consecutive_error(consecutive: int, attempt: int) -> tuple[int, int]:
+        consecutive += 1
+        if consecutive >= 3:
+            attempt += 1
+            consecutive = 0
+        return consecutive, attempt
+
     def fix_loop(self) -> bool:
         start = time.time()
         self.fix_start_time = start
@@ -1402,10 +1410,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             except Exception as exc:
                 self.feedback = f"Failure type: ai_endpoint\n\n{exc}"
                 write_debug("feedback.txt", self.feedback)
-                consecutive_errors += 1
-                if consecutive_errors >= 3:
-                    attempt += 1
-                    consecutive_errors = 0
+                consecutive_errors, attempt = self._bump_consecutive_error(consecutive_errors, attempt)
                 continue
 
             if content:
@@ -1416,10 +1421,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                     messages.append({"role": "assistant", "content": content})
                 messages.append({"role": "user", "content": "You didn't call any tools! You MUST call a tool. If you need to make changes, use `edit_file`. If you are finished, you MUST call the `done` tool. DO NOT echo tool outputs or return plain text."})
                 self.update_checklist(attempt, "applying", "failed", "No tools called")
-                consecutive_errors += 1
-                if consecutive_errors >= 3:
-                    attempt += 1
-                    consecutive_errors = 0
+                consecutive_errors, attempt = self._bump_consecutive_error(consecutive_errors, attempt)
                 continue
             
             # Reset consecutive errors since we successfully got tool calls
