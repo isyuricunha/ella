@@ -3,7 +3,7 @@
 Architecture details and configuration for my Ella agent.
 
 ## Execution Flow
-1. **Trigger**: Triggered by `issues: [opened]` or `issue_comment: [created]`.
+1. **Trigger**: Triggered by `issues: [opened]`, `issue_comment: [created]`, `pull_request_target: [opened, synchronize]`, or `workflow_run: [completed]` (auto-heal on CI failures).
 2. **Auth**: Uses `actions/create-github-app-token@v3` for a temporary, highly-privileged token.
 3. **Run**: Executes `python3 .ella/agent.py`.
 4. **Context**: Reads `GITHUB_EVENT_PATH` and uses `gh` CLI to fetch PR diffs, issues, and directories.
