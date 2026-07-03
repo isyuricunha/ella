@@ -38,4 +38,4 @@ class TestStripToolCallJson:
         assert result == summary
 
     def test_empty_string(self):
-        assert agent._strip_tool_call_json("") == ""
+        assert agent._strip_tool_call_json("") == "I could not generate a response. Please try rephrasing your request."

@@ -239,12 +239,16 @@ def _strip_tool_call_json(text: str) -> str:
 
     When no tools are provided in the API request, certain models still
     hallucinate tool-call syntax like {"tool": "read_file", ...} in the
-    text content. This strips trailing JSON objects that match that pattern
-    so they don't get posted as comments.
+    text content. This strips those JSON objects so they don't get
+    posted as comments.
     """
     import re as _re
-    cleaned = _re.sub(r'\n*\{"tool"\s*:.*?\}\s*$', '', text, flags=_re.DOTALL)
-    return cleaned.strip()
+    cleaned = _re.sub(r'^\s*\{"tool"\s*:.*?\}\s*$', '', text, flags=_re.MULTILINE)
+    cleaned = _re.sub(r'\n+\{"tool"\s*:.*?\}\s*$', '', cleaned, flags=_re.DOTALL)
+    cleaned = cleaned.strip()
+    if not cleaned:
+        return "I could not generate a response. Please try rephrasing your request."
+    return cleaned
 
 
 def _pyproject_has_build_target(path: Path) -> bool:
