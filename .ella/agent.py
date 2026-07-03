@@ -234,6 +234,19 @@ def command_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
+def _strip_tool_call_json(text: str) -> str:
+    """Remove raw tool-call JSON that some models emit in text mode.
+
+    When no tools are provided in the API request, certain models still
+    hallucinate tool-call syntax like {"tool": "read_file", ...} in the
+    text content. This strips trailing JSON objects that match that pattern
+    so they don't get posted as comments.
+    """
+    import re as _re
+    cleaned = _re.sub(r'\n*\{"tool"\s*:.*?\}\s*$', '', text, flags=_re.DOTALL)
+    return cleaned.strip()
+
+
 def _pyproject_has_build_target(path: Path) -> bool:
     """Check if a pyproject.toml defines a buildable Python package.
 
@@ -868,6 +881,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         ]
         content, _ = self.ai_call(messages, MAX_TOKENS[self.mode])
         response = content or ""
+        response = _strip_tool_call_json(response)
         write_debug("ai-response.txt", response)
         return response
 
