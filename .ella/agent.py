@@ -91,7 +91,7 @@ def env_int(name: str, default: int) -> int:
         return default
     try:
         value = int(raw)
-        return value if value > 0 else default
+        return value if value >= 0 else default
     except ValueError:
         return default
 
