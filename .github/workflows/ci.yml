@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: AST smoke check
+        run: python3 -c "import ast; ast.parse(open('.ella/agent.py').read()); print('AST parse OK')"
+
+      - name: Import smoke check
+        run: |
+          python3 -c "
+          import importlib.util
+          spec = importlib.util.spec_from_file_location('agent', '.ella/agent.py')
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          print('Import OK')
+          print(f'Ella class: {mod.Ella}')
+          "
+
+      - name: Run unit tests
+        run: python3 -m pytest tests/ -v

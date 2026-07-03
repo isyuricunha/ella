@@ -1,1 +1,5 @@
-.ella/__pycache__/agent.cpython-314.pyc
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
