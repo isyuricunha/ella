@@ -600,25 +600,30 @@ class Ella:
         self.load_repo_instructions()
         self.allowed_files = self.get_pr_changed_files()
         self.create_progress_comment(
-            "👀 I started working on this PR.\n\n"
-            f"Status: preparing context.\n"
-            f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
-            if self.mode == "fix"
-            else
-            "👀 I will continue trying to fix this PR.\n\n"
-            f"Status: preparing context.\n"
-            f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+            self.generate_message(
+                f"I am starting to work on a PR. Write a short friendly message (1-2 sentences) saying I'm diving in and will report back. No headers.",
+                fallback="I started an investigation into this PR and will report back once I have findings."
+            )
+            + f"\n\n**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes"
         )
         success = self.fix_loop()
         if success:
             commit_sha = self.commit_and_push_fix()
             if commit_sha:
-                self.comment(
-                    f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
+                msg = self.generate_message(
+                    f"I just fixed a PR (commit {commit_sha}). My summary of what I did: {self.final_summary}. "
+                    f"Write a short friendly wrap-up comment (2-3 sentences) referencing the commit hash {commit_sha}. No headers.",
+                    fallback=f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}"
+                )
+                self.comment(msg)
                 self.react("rocket")
             else:
-                self.comment(
-                    f"All checks passed and no uncommitted changes remain.\n\n{self.final_summary}")
+                msg = self.generate_message(
+                    f"All checks passed but no code changes were needed. My summary: {self.final_summary}. "
+                    f"Write a short friendly comment (2-3 sentences) explaining this. No headers.",
+                    fallback=f"All checks passed and no uncommitted changes remain.\n\n{self.final_summary}"
+                )
+                self.comment(msg)
                 self.react("rocket")
         else:
             self.comment(self.final_summary)
@@ -635,21 +640,31 @@ class Ella:
         self.load_repo_instructions()
         self.allowed_files = self.get_repo_files()
         self.create_progress_comment(
-            "👀 I started working on this issue.\n\n"
-            f"Status: preparing branch and context.\n"
-            f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+            self.generate_message(
+                f"I am starting to work on an issue. Write a short friendly message (1-2 sentences) saying I'm setting up a branch and diving in. No headers.",
+                fallback="I started working on this issue and will report back once I have findings."
+            )
+            + f"\n\n**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes"
         )
         success = self.fix_loop()
         if success:
             commit_sha = self.commit_and_push_solve()
             if commit_sha:
                 pr_url = self.create_solve_pr()
-                self.comment(
-                    f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`")
+                msg = self.generate_message(
+                    f"I just solved an issue and created a PR ({pr_url}, commit {commit_sha}). My summary: {self.final_summary}. "
+                    f"Write a short friendly wrap-up comment (2-3 sentences) referencing the PR link and commit. No headers.",
+                    fallback=f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`"
+                )
+                self.comment(msg)
                 self.react("rocket")
             else:
-                self.comment(
-                    f"All checks passed but no changes were needed.\n\n{self.final_summary}")
+                msg = self.generate_message(
+                    f"All checks passed but no code changes were needed. My summary: {self.final_summary}. "
+                    f"Write a short friendly comment (2-3 sentences) explaining this. No headers.",
+                    fallback=f"All checks passed but no changes were needed.\n\n{self.final_summary}"
+                )
+                self.comment(msg)
                 self.react("rocket")
         else:
             self.comment(self.final_summary)
@@ -841,6 +856,31 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             ], check=True)
         except Exception as e:
             print(f"Warning: failed to update progress comment: {e}")
+
+    def generate_message(self, prompt: str, fallback: str, max_tokens: int = 300) -> str:
+        """Generate a short natural message using the small model.
+
+        Returns the AI-generated text, or ``fallback`` if the AI call fails.
+        """
+        system = (
+            "You are Ella Mizuki, a GitHub AI assistant. The repository owner is Yuri. "
+            "You are not Yuri - you are Ella, his AI assistant. "
+            "Write in English in a warm, natural tone using first-person ('I'). "
+            "Be concise (1-3 sentences). Do not use markdown headers or code fences."
+        )
+        try:
+            text, _ = self.ai_call(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=max_tokens,
+                use_small=True,
+            )
+            return (text or "").strip() or fallback
+        except Exception as exc:
+            print(f"generate_message fallback ({exc})")
+            return fallback
 
     def update_task_checklist(self, title: str, steps: list[tuple[str, bool]], detail: str = "") -> None:
         lines = [f"### 🤖 {title}\n"]
@@ -1206,21 +1246,38 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 self.allowed_files.append(common)
                 
         self.create_progress_comment(
-            "🚑 I am the **Auto-Healer**. I detected a CI failure and I'm automatically trying to fix it!\n\n"
-            f"Status: analyzing logs and preparing branch.\n"
-            f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+            self.generate_message(
+                f"I detected a CI failure on a PR and I'm automatically trying to fix it. Write a short friendly message (1-2 sentences) saying I'm on it. No headers.",
+                fallback="I detected a CI failure and I'm automatically trying to fix it!"
+            )
+            + f"\n\n**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes"
         )
         
         success = self.fix_loop()
         if success:
             commit_sha = self.commit_and_push_fix()
             if commit_sha:
-                self.comment(f"🚑 I successfully auto-healed the CI pipeline!\n\nCommit: `{commit_sha}`\n\n{self.final_summary}")
+                msg = self.generate_message(
+                    f"I just auto-healed a CI pipeline (commit {commit_sha}). My summary: {self.final_summary}. "
+                    f"Write a short friendly wrap-up comment (2-3 sentences) referencing the commit. No headers.",
+                    fallback=f"🚑 I successfully auto-healed the CI pipeline!\n\nCommit: `{commit_sha}`\n\n{self.final_summary}"
+                )
+                self.comment(msg)
             else:
-                self.comment(f"🚑 All checks passed and no uncommitted changes remain.\n\n{self.final_summary}")
+                msg = self.generate_message(
+                    f"All checks passed and no code changes were needed. My summary: {self.final_summary}. "
+                    f"Write a short friendly comment (2-3 sentences) explaining this. No headers.",
+                    fallback=f"🚑 All checks passed and no uncommitted changes remain.\n\n{self.final_summary}"
+                )
+                self.comment(msg)
             self.react("rocket")
         else:
-            self.comment(f"🚑 I tried to auto-heal the CI, but I couldn't get the checks to pass within the limits.\n\n{self.final_summary}")
+            msg = self.generate_message(
+                f"I tried to auto-heal the CI but couldn't get checks to pass. My summary: {self.final_summary}. "
+                f"Write a short friendly comment (2-3 sentences) explaining the failure. No headers.",
+                fallback=f"🚑 I tried to auto-heal the CI, but I couldn't get the checks to pass within the limits.\n\n{self.final_summary}"
+            )
+            self.comment(msg)
             self.react("confused")
 
     def get_tools(self) -> list[dict]:
