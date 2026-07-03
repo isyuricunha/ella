@@ -8,9 +8,10 @@ body:
       value: |
         Thanks for taking the time to suggest a new feature!
         Please note that Ella is primarily designed as a GitHub-native AI Agent.
-        
-        ### 📚 Useful Links:
-        - 🌐 **[Full Documentation](https://github.com/isyuricunha/ella/tree/main/docs)**
+
+        ### Useful Links:
+        - [Full Documentation](https://github.com/isyuricunha/ella/tree/main/docs)
+        - [Commands Reference](https://github.com/isyuricunha/ella/blob/main/docs/commands.md)
   - type: checkboxes
     id: checklist
     attributes:
@@ -18,6 +19,19 @@ body:
       options:
         - label: I have searched the existing issues and found no similar feature requests.
           required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area of Ella does this feature relate to?
+      options:
+        - Triage (issue classification, duplicate detection, labeling)
+        - Review (PR code review)
+        - Fix/Solve (autonomous code fixes)
+        - Commands (ask, pr, plan, label, wiki, help)
+        - Configuration (secrets, environment variables, workflow)
+        - Other
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:

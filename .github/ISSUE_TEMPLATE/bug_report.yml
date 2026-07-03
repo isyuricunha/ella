@@ -6,12 +6,33 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report! 
+        Thanks for taking the time to fill out this bug report!
         Please provide as much detail as possible to help me reproduce the issue.
-        
-        ### 📚 Before you submit:
-        Please check the **[Official Documentation](https://github.com/isyuricunha/ella/tree/main/docs)** to see if your issue is already solved:
-        - 🛠️ **[Setup Guide](https://github.com/isyuricunha/ella/blob/main/docs/setup.md)**
+
+        ### Before you submit:
+        Please check the [Official Documentation](https://github.com/isyuricunha/ella/tree/main/docs) to see if your issue is already solved:
+        - [Setup Guide](https://github.com/isyuricunha/ella/blob/main/docs/setup.md)
+        - [Commands Reference](https://github.com/isyuricunha/ella/blob/main/docs/commands.md)
+  - type: dropdown
+    id: command
+    attributes:
+      label: Which Ella command triggered the bug?
+      description: The `/ella` command that caused the issue. Use "Auto (triage/review)" for automatic triggers.
+      options:
+        - Auto (triage/review)
+        - /ella ask
+        - /ella pr
+        - /ella review
+        - /ella plan
+        - /ella label
+        - /ella fix
+        - /ella continue
+        - /ella solve
+        - /ella wiki
+        - /ella help
+        - Other / Not sure
+    validations:
+      required: true
   - type: input
     id: environment
     attributes:
@@ -24,10 +45,18 @@ body:
     id: llm_provider
     attributes:
       label: LLM Provider & Model
-      description: What AI provider and model are you using?
-      placeholder: e.g. OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet
+      description: What AI provider and model are you using? Include both large and small if configured.
+      placeholder: "e.g. Large: OpenAI GPT-4o, Small: gpt-oss-20b"
     validations:
       required: true
+  - type: input
+    id: workflow_run
+    attributes:
+      label: Workflow Run URL
+      description: Link to the GitHub Actions run that failed or misbehaved (if applicable).
+      placeholder: https://github.com/isyuricunha/ella/actions/runs/...
+    validations:
+      required: false
   - type: textarea
     id: description
     attributes:
@@ -43,7 +72,7 @@ body:
       description: Steps to reproduce the behavior.
       placeholder: |
         1. Create an issue
-        2. Tag the bot
+        2. Tag the bot with /ella fix
         3. See error in GitHub Actions logs
     validations:
       required: true
@@ -54,6 +83,14 @@ body:
       description: A clear and concise description of what you expected to happen.
     validations:
       required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Copy and paste any relevant log output from the Actions run. No need for backticks.
+      render: shell
+    validations:
+      required: false
   - type: checkboxes
     id: checklist
     attributes:

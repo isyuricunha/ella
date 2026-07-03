@@ -1,0 +1,38 @@
+name: Question
+description: Ask a question about using Ella
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about how Ella works? You're in the right place.
+
+        ### Before you ask:
+        - [Setup Guide](https://github.com/isyuricunha/ella/blob/main/docs/setup.md)
+        - [Commands Reference](https://github.com/isyuricunha/ella/blob/main/docs/commands.md)
+        - [Internals](https://github.com/isyuricunha/ella/blob/main/docs/internals.md)
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before you submit
+      options:
+        - label: I have searched the existing issues and found no similar questions.
+          required: true
+        - label: I have checked the documentation links above.
+          required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: Describe your question in as much detail as possible.
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Related command (if any)
+      description: Which `/ella` command is your question about?
+      placeholder: e.g. /ella fix, /ella solve, or N/A
+    validations:
+      required: false

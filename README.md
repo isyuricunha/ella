@@ -82,6 +82,16 @@ For detailed information on how Ella works under the hood, check out the full do
 - [Available Commands](docs/commands.md)
 - [Architecture & Internals](docs/internals.md)
 
+## 🐛 Reporting Issues
+
+When you open an issue on GitHub, you'll be prompted to choose from the following templates:
+
+- **Bug Report** - Something is not working as expected
+- **Feature Request** - Suggest a new idea or improvement
+- **Question** - Ask about how Ella works
+
+Blank issues are disabled to ensure enough context is provided.
+
 ## 📝 License
 
 This project is licensed under the **GNU AGPLv3 License**. This ensures that the code remains free and open-source forever. If you modify this code and run it as a service (including as a GitHub Action), you must release your modified source code.

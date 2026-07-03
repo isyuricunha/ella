@@ -41,6 +41,7 @@ Optional secrets to fine-tune her limits:
 - `.ella/labels.json`: Definitions for `/ella label`.
 - `.ella/ignore`: Globs/patterns of files she should ignore.
 - `.ella/checks.sh`: Optional custom checks script (see `.ella/checks.sh.example`). When present, it replaces the auto-detected install/check commands.
+- `.github/ISSUE_TEMPLATE/`: Issue templates (bug report, feature request, question). Blank issues are disabled via `config.yml`.
 
 ## AI Tools
 When running `/ella fix`, `/ella continue`, `/ella solve`, or auto-heal, Ella has access to these tools:
