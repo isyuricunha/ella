@@ -99,7 +99,7 @@ def env_int(name: str, default: int) -> int:
 TIME_LIMIT_SECONDS = env_int("ELLA_TIME_LIMIT_SECONDS", 3600)
 
 COMMIT_SUBJECT_RE = re.compile(
-    r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9._/-]+\))?!?: .+"
+    r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|security|style|test)(\([a-z0-9._/-]+\))?!?: .+"
 )
 
 MAX_CONTEXT_PR_DIFF_BYTES = env_int("ELLA_MAX_CONTEXT_PR_DIFF_BYTES", 500_000)
@@ -302,7 +302,7 @@ def load_labels() -> list[dict[str, str]]:
         return SAFE_LABELS_DEFAULT
 
 
-def parse_jsonish(text: str) -> Any:
+def parse_jsonish(text: str) -> dict:
     raw = text.strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
@@ -531,6 +531,7 @@ class Ella:
             return
 
         if self.mode == "heal":
+            self.validate_ai_config()
             self.handle_heal()
             return
     def mask_secrets(self) -> None:
@@ -1219,13 +1220,19 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                             obj = json.loads(payload)
                         except json.JSONDecodeError:
                             continue
-                        self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
+                        try:
+                            self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
+                        except Exception as e:
+                            print(f"Skipping malformed SSE chunk: {e}")
                     else:
                         try:
                             obj = json.loads(stripped)
                         except json.JSONDecodeError:
                             continue
-                        self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
+                        try:
+                            self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
+                        except Exception as e:
+                            print(f"Skipping malformed chunk: {e}")
 
         except urllib.error.HTTPError as exc:
             raise CommandError(f"AI endpoint failed with HTTP status {exc.code}.")
@@ -1363,7 +1370,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             res = run_cmd(["bash", "-lc", cmd], capture=True, check=False)
             output = res.stdout or ""
             if len(output) > 8000:
-                output = output[:8000] + "\n...(truncated)"
+                output = "...(truncated)\n" + output[-8000:]
             return f"Exit code: {res.returncode}\n\nOutput:\n{output}" if output else f"Exit code: {res.returncode} (no output)"
             
         return f"Error: Unknown tool {name}."
@@ -1807,7 +1814,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             [sys.executable, "-c", f"import {module}"], check=False, capture=True, timeout=30, env=clean_env_for_checks())
         return result.returncode == 0
 
-    def run_logged_check(self, name: str, cmd: list[str], timeout: int = 900) -> tuple[bool, str]:
+    def run_logged_check(self, name: str, cmd: list[str], timeout: int = 900, cwd: Path | None = None) -> tuple[bool, str]:
         safe_name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", name)
         log_path = OUT / f"check-{safe_name}.log"
         print(f"Running {name}...")
@@ -1815,7 +1822,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         try:
             result = subprocess.run(
                 cmd,
-                cwd=ROOT,
+                cwd=ROOT if cwd is None else cwd,
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -2220,7 +2227,6 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             self.comment(response)
 
     def handle_wiki(self) -> None:
-
         self.create_progress_comment("⏳ I am generating the Wiki documentation. Give me a moment to read the repository...")
         self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", False), ("Generating pages", False), ("Pushing to wiki", False)])
 
@@ -2281,7 +2287,11 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             wiki_dir = Path(tempfile.mkdtemp())
             wiki_url = f"https://x-access-token:{token}@github.com/{self.repo}.wiki.git"
 
-            git(["clone", wiki_url, str(wiki_dir)])
+            try:
+                git(["clone", "--depth", "1", wiki_url, str(wiki_dir)])
+            except CommandError:
+                run_cmd(["git", "init", str(wiki_dir)], capture=True)
+                run_cmd(["git", "-C", str(wiki_dir), "checkout", "-b", "master"], capture=True)
 
             for filename, content in pages.items():
                 if not filename.endswith(".md"):
