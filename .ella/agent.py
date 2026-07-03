@@ -130,20 +130,25 @@ class CommandError(Exception):
 def scrub_secrets(text: str) -> str:
     if not isinstance(text, str):
         return text
-    
+
     secrets_to_mask = [
-        "GH_TOKEN", "GITHUB_TOKEN", 
-        "ELLA_AI_API_KEY", 
-        "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID"
+        "GH_TOKEN", "GITHUB_TOKEN",
+        "ELLA_AI_API_KEY",
+        "ELLA_AI_BASE_URL",
+        "ELLA_AI_MODEL",
+        "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID",
+        "YURI_COMMIT_NAME", "YURI_COMMIT_EMAIL",
     ]
-    
+
     for key in secrets_to_mask:
         secret = os.environ.get(key)
         if secret and len(secret) >= 3:
             text = text.replace(secret, "***REDACTED***")
-            
+
     # Also redact generic GitHub tokens pattern
     text = re.sub(r'gh[ps]_[a-zA-Z0-9]{36}', '***REDACTED***', text)
+    # Redact ghp_ tokens (classic PATs)
+    text = re.sub(r'github_pat_[a-zA-Z0-9_]{22,}', '***REDACTED***', text)
     return text
 
 
@@ -224,7 +229,13 @@ def clean_env_for_checks() -> dict[str, str]:
     for key in list(env):
         if key.startswith("ELLA_AI_"):
             env.pop(key, None)
-        if key in {"GH_TOKEN", "GITHUB_TOKEN", "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID"}:
+        if key.startswith("ELLA_APP_"):
+            env.pop(key, None)
+        if key.startswith("YURI_"):
+            env.pop(key, None)
+        if key in {"GH_TOKEN", "GITHUB_TOKEN",
+                   "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID",
+                   "GITHUB_EVENT_PATH"}:
             env.pop(key, None)
     env["CI"] = "true"
     return env
@@ -586,11 +597,12 @@ class Ella:
             return
     def mask_secrets(self) -> None:
         secrets = [
+            "GH_TOKEN", "GITHUB_TOKEN",
             "ELLA_AI_BASE_URL",
             "ELLA_AI_MODEL",
             "ELLA_AI_API_KEY",
-            "YURI_COMMIT_NAME",
-            "YURI_COMMIT_EMAIL",
+            "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID",
+            "YURI_COMMIT_NAME", "YURI_COMMIT_EMAIL",
         ]
         for secret in secrets:
             value = os.environ.get(secret, "")
@@ -715,7 +727,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
     def comment(self, body: str) -> None:
         gh(["issue", "comment", str(self.issue_number),
-           "--repo", self.repo, "--body", body])
+           "--repo", self.repo, "--body", scrub_secrets(body)])
 
     def create_progress_comment(self, body: str) -> None:
         out = gh([
@@ -724,7 +736,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "POST",
             f"repos/{self.repo}/issues/{self.issue_number}/comments",
             "-f",
-            f"body={body}",
+            f"body={scrub_secrets(body)}",
             "--jq",
             ".id",
         ])
@@ -739,7 +751,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "PATCH",
             f"repos/{self.repo}/issues/comments/{self.progress_comment_id}",
             "-f",
-            f"body={body}",
+            f"body={scrub_secrets(body)}",
         ], check=False)
 
     def update_task_checklist(self, title: str, steps: list[tuple[str, bool]], detail: str = "") -> None:
@@ -1014,10 +1026,10 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         payload = {
             "commit_id": commit_id,
             "event": "COMMENT",
-            "body": summary or "Ella's Code Review",
+            "body": scrub_secrets(summary) or "Ella's Code Review",
             "comments": []
         }
-        
+
         for c in comments:
             path = c.get("path")
             line = c.get("line")
@@ -1027,9 +1039,9 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                     "path": str(path),
                     "line": int(line),
                     "side": "RIGHT",
-                    "body": str(body)
+                    "body": scrub_secrets(str(body))
                 })
-                
+
         if not payload["comments"]:
             self.comment(summary)
             return
@@ -1038,7 +1050,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             f.write(json_payload)
             temp_path = f.name
-            
+
         try:
             gh(["api", "--method", "POST", f"repos/{self.repo}/pulls/{self.issue_number}/reviews", "--input", temp_path])
             self.comment("I left a few inline comments on the changed files! 🚀")
@@ -1084,10 +1096,11 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         except Exception as e:
             print(f"Failed to get logs for run {run_id}: {e}")
             failed_logs = "Logs unavailable."
-            
+
         # Keep logs limited
         if len(failed_logs) > 8000:
             failed_logs = "...(truncated)...\n" + failed_logs[-8000:]
+        failed_logs = scrub_secrets(failed_logs)
             
         if "dependabot" in author.lower():
             self.prompt = f"Dependabot updated a dependency and it broke the CI. Read these logs, search the internet for the migration guide if needed, and fix the breaking changes.\n\nLogs:\n{failed_logs}"
@@ -1288,9 +1301,9 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                             print(f"Skipping malformed chunk: {e}")
 
         except urllib.error.HTTPError as exc:
-            raise CommandError(f"AI endpoint failed with HTTP status {exc.code}.")
+            raise CommandError(scrub_secrets(f"AI endpoint failed with HTTP status {exc.code}."))
         except urllib.error.URLError as exc:
-            raise CommandError(f"AI endpoint request failed: {exc.reason}")
+            raise CommandError(scrub_secrets(f"AI endpoint request failed: {exc.reason}"))
 
         content = "".join(content_parts).strip()
         tool_calls = list(active_tool_calls.values())
@@ -1424,7 +1437,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                     return f"Error: this command is blocked for safety: {cmd}"
 
             res = run_cmd(["bash", "-lc", cmd], capture=True, check=False)
-            output = res.stdout or ""
+            output = scrub_secrets(res.stdout or "")
             if len(output) > 8000:
                 output = "...(truncated)\n" + output[-8000:]
             return f"Exit code: {res.returncode}\n\nOutput:\n{output}" if output else f"Exit code: {res.returncode} (no output)"
@@ -1885,17 +1898,17 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 timeout=timeout,
                 env=clean_env_for_checks(),
             )
-            log_path.write_text(result.stdout or "",
+            log_path.write_text(scrub_secrets(result.stdout or ""),
                                 encoding="utf-8", errors="replace")
             return result.returncode == 0, tail_text(log_path, 120)
         except subprocess.TimeoutExpired as exc:
             output = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
             output += f"\nCommand timed out after {timeout}s.\n"
-            log_path.write_text(output, encoding="utf-8", errors="replace")
+            log_path.write_text(scrub_secrets(output), encoding="utf-8", errors="replace")
             return False, tail_text(log_path, 120)
         except Exception as exc:
-            log_path.write_text(str(exc), encoding="utf-8", errors="replace")
-            return False, str(exc)
+            log_path.write_text(scrub_secrets(str(exc)), encoding="utf-8", errors="replace")
+            return False, scrub_secrets(str(exc))
 
     def infer_commit_type(self, changed_files: list[str]) -> tuple[str, str | None]:
         normalized = [path.replace("\\", "/") for path in changed_files]
@@ -2087,9 +2100,13 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
     def write_commit_message_file(self, changed_files: list[str]) -> Path:
         message = self.generate_commit_message(changed_files)
-        path = OUT / "commit-message.txt"
-        path.write_text(message, encoding="utf-8")
-        return path
+        # Write scrubbed version as debug artifact (may contain Co-authored-by email)
+        write_debug("commit-message.txt", message)
+        # Write real version to a temp file for git commit (not uploaded as artifact)
+        fd, tmp_path = tempfile.mkstemp(suffix=".txt")
+        os.write(fd, message.encode("utf-8"))
+        os.close(fd)
+        return Path(tmp_path)
 
     def commit_and_push_wip(self, reason: str) -> str | None:
         git(["config", "user.name", self.commit_name])
@@ -2101,12 +2118,18 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
         subject = f"chore(wip): partial progress ({reason})"
         body = f"The agent stopped before completing the task.\n\nReason: {reason}\n\nChanged files:\n" + "\n".join(f"- {f}" for f in changed)
-        
-        path = OUT / "wip-commit.txt"
-        path.write_text(f"{subject}\n\n{body}", encoding="utf-8")
+
+        # Write scrubbed version as debug artifact
+        write_debug("wip-commit.txt", f"{subject}\n\n{body}")
+        # Write real version to temp file for git commit
+        fd, tmp_path = tempfile.mkstemp(suffix=".txt")
+        os.write(fd, f"{subject}\n\n{body}".encode("utf-8"))
+        os.close(fd)
+        path = Path(tmp_path)
 
         run_cmd(["git", "add", "--", *changed], capture=True)
         git(["commit", "--no-verify", "-F", str(path)])
+        os.unlink(path)
 
         branch = self.pr_info["headRefName"] if self.pr_info else getattr(self, "solve_branch", "")
         if not branch:
@@ -2133,6 +2156,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
         run_cmd(["git", "add", "--", *changed], capture=True)
         git(["commit", "--no-verify", "-F", str(commit_message_path)])
+        os.unlink(commit_message_path)
 
         head_ref = self.pr_info["headRefName"]
         git(["push", "origin", f"HEAD:{head_ref}"])
@@ -2153,6 +2177,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
         run_cmd(["git", "add", "--", *changed], capture=True)
         git(["commit", "--no-verify", "-F", str(commit_message_path)])
+        os.unlink(commit_message_path)
         git(["push", "origin", f"HEAD:{self.solve_branch}"])
 
         return git(["rev-parse", "--short", "HEAD"]).strip()
@@ -2161,7 +2186,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         if not self.issue_info:
             raise RuntimeError("Issue info missing")
         title = self.issue_info.get("title", f"Issue #{self.issue_number}")
-        body = f"Closes #{self.issue_number}\n\n{self.final_summary}"
+        body = f"Closes #{self.issue_number}\n\n{scrub_secrets(self.final_summary)}"
         out = gh([
             "pr",
             "create",
@@ -2380,8 +2405,9 @@ def main() -> int:
         Ella().run()
         return 0
     except Exception as exc:
-        write_debug("fatal-error.txt", f"{type(exc).__name__}: {exc}\n")
-        print(f"Fatal error: {exc}", file=sys.stderr)
+        msg = scrub_secrets(f"{type(exc).__name__}: {exc}\n")
+        write_debug("fatal-error.txt", msg)
+        print(f"Fatal error: {scrub_secrets(str(exc))}", file=sys.stderr)
         return 1
 
 
