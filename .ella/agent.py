@@ -478,7 +478,12 @@ class Ella:
         self.parse_command()
 
         if self.mode == "wiki":
-            self.handle_wiki()
+            try:
+                self.handle_wiki()
+            except Exception as exc:
+                print(f"AI call failed during wiki: {exc}")
+                self.comment("❌ I could not generate the wiki. The AI endpoint returned an error.")
+                self.react("confused")
             return
 
         if self.mode == "triage":
@@ -526,7 +531,13 @@ class Ella:
             self.load_issue_metadata()
 
         if self.mode in {"ask", "pr", "review", "plan"}:
-            response = self.handle_read_only()
+            try:
+                response = self.handle_read_only()
+            except Exception as exc:
+                print(f"AI call failed during {self.mode}: {exc}")
+                self.comment("❌ I could not generate a response. The AI endpoint returned an error.")
+                self.react("confused")
+                return
             if self.mode == "review":
                 try:
                     data = parse_jsonish(response)
@@ -546,7 +557,13 @@ class Ella:
             return
 
         if self.mode == "label":
-            self.handle_label()
+            try:
+                self.handle_label()
+            except Exception as exc:
+                print(f"AI call failed during label: {exc}")
+                self.comment("❌ I could not classify labels. The AI endpoint returned an error.")
+                self.react("confused")
+                return
             self.react("+1")
             return
 
@@ -991,7 +1008,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         if self.mode == "plan":
             return base + " Create a clear and practical implementation plan. Include likely files, steps, risks, and checks."
         if self.mode == "label":
-            return base + " Classify the issue or PR with common GitHub labels. Return only valid JSON. No Markdown. No code fences."
+            return base + " Classify the issue or PR with common GitHub labels. Return ONLY valid JSON in this format: { \"labels\": [\"bug\"], \"summary\": \"one short sentence explaining the choice\" }. No Markdown. No code fences. The summary must be a single brief sentence, not a full analysis."
         if self.mode == "pr":
             return base + " Provide a short, friendly, and helpful analysis of the PR context provided."
         return base + " Be friendly, clear, and concise. Do not output JSON or tool-call syntax. Answer directly in plain text."
@@ -2309,7 +2326,12 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": context}
         ]
-        content_resp, _ = self.ai_call(messages, MAX_TOKENS.get("triage", 8192), use_small=True)
+        try:
+            content_resp, _ = self.ai_call(messages, MAX_TOKENS.get("triage", 8192), use_small=True)
+        except Exception as exc:
+            print(f"AI call failed during triage: {exc}")
+            self.update_progress("❌ I could not generate a triage response. The AI endpoint returned an error.")
+            return
         response = content_resp or ""
         
         self.update_task_checklist("Issue Triage", [("Assigning user", True), ("Fetching issues", True), ("Generating response", True)])
