@@ -63,4 +63,4 @@ When writing code here, always use strict TypeScript and prefer functional compo
 
 ## 4. Test the Bot
 
-Create an issue in your repository and use the command `/ella help`. If everything is configured correctly, the workflow will trigger the action, connect to your LLM, and reply!
+Create an issue in your repository, then comment `/ella help` on it. If everything is configured correctly, the workflow will trigger the action, connect to your LLM, and reply!
