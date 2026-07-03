@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -972,7 +973,6 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             return
 
         json_payload = json.dumps(payload)
-        import tempfile
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             f.write(json_payload)
             temp_path = f.name
@@ -2204,8 +2204,6 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             self.comment(response)
 
     def handle_wiki(self) -> None:
-        import tempfile
-        import shutil
 
         self.create_progress_comment("⏳ I am generating the Wiki documentation. Give me a moment to read the repository...")
         self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", False), ("Generating pages", False), ("Pushing to wiki", False)])
