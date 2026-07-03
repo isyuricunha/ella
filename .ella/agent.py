@@ -584,6 +584,10 @@ class Ella:
         if self.mode == "heal":
             self.handle_heal()
             return
+
+    def __repr__(self) -> str:
+        return f"Ella(repo={self.repo!r}, mode={self.mode!r}, is_pr={self.is_pr})"
+
     def mask_secrets(self) -> None:
         secrets = [
             "ELLA_AI_BASE_URL",
