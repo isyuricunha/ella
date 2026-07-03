@@ -620,7 +620,7 @@ I answer using the configured model.
 I give a short PR analysis.
 
 `/ella review request`
-I do a stricter PR code review.
+I do a stricter PR code review. Also runs automatically when a PR is opened or synchronized.
 
 `/ella plan request`
 I write a plan without editing files.
@@ -628,8 +628,11 @@ I write a plan without editing files.
 `/ella label`
 I apply common labels to the issue or PR.
 
+`/ella wiki`
+I read the entire codebase and generate a multi-page GitHub Wiki.
+
 `/ella fix request`
-I try to fix the current PR, run checks, and commit as Yuri Cunha.
+I try to fix the current PR, run checks, and commit.
 
 `/ella continue request`
 I continue trying to fix the current PR with more attempts.
