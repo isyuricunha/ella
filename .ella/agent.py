@@ -16,6 +16,7 @@ from typing import Any
 
 
 ROOT = Path.cwd()
+ROOT_RESOLVED = ROOT.resolve()
 AGENT_DIR = Path(__file__).parent.resolve()
 RUNNER_TEMP = Path(os.environ.get("RUNNER_TEMP", "/tmp"))
 OUT = RUNNER_TEMP / "ella-output"
@@ -1282,7 +1283,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             filepath = args.get("filepath", "")
             path = ROOT / filepath
             try:
-                if not path.resolve().is_relative_to(ROOT.resolve()):
+                if not path.resolve().is_relative_to(ROOT_RESOLVED):
                     return f"Error: unauthorized path {filepath}. Access outside repository is denied."
             except ValueError:
                 return f"Error: invalid path {filepath}."
@@ -1297,7 +1298,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             path = ROOT / filepath
             
             try:
-                if not path.resolve().is_relative_to(ROOT.resolve()):
+                if not path.resolve().is_relative_to(ROOT_RESOLVED):
                     return f"Error: unauthorized path {filepath}. Access outside repository is denied."
             except ValueError:
                 return f"Error: invalid path {filepath}."
