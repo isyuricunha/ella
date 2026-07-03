@@ -111,7 +111,7 @@ MAX_TOKENS = {
     "plan": env_int("ELLA_MAX_TOKENS_PLAN", 4096),
     "label": env_int("ELLA_MAX_TOKENS_LABEL", 1200),
     "fix": env_int("ELLA_MAX_TOKENS_FIX", 16384),
-    "continue": env_int("ELLA_MAX_TOKENS_FIX", 16384),
+    "continue": env_int("ELLA_MAX_TOKENS_CONTINUE", 16384),
     "solve": env_int("ELLA_MAX_TOKENS_SOLVE", 16384),
     "heal": env_int("ELLA_MAX_TOKENS_HEAL", 16384),
     "triage": env_int("ELLA_MAX_TOKENS_TRIAGE", 8192),
