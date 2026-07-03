@@ -476,6 +476,10 @@ class Ella:
             return
 
         if self.mode == "triage":
+            issue_author = self.issue.get("user", {}).get("login", "")
+            if "[bot]" in issue_author or issue_author == "ella-mizuki[bot]":
+                print(f"Skipping triage: issue created by bot {issue_author}")
+                return
             self.validate_ai_config()
             self.load_repo_instructions()
             self.handle_triage()
@@ -507,6 +511,10 @@ class Ella:
 
         if self.is_pr and self.mode in {"pr", "review", "plan", "label", "fix", "continue"}:
             self.load_pr_metadata()
+
+            if self.mode == "review" and not self.comment_id and self.pr_info and self.pr_info.get("isDraft"):
+                print("Skipping review: PR is in draft state")
+                return
 
         if (not self.is_pr) and self.mode in {"plan", "label", "solve"}:
             self.load_issue_metadata()
@@ -747,15 +755,19 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
     def update_progress(self, body: str) -> None:
         if not self.progress_comment_id:
+            print("Warning: progress comment not posted (no progress_comment_id); update skipped")
             return
-        gh([
-            "api",
-            "--method",
-            "PATCH",
-            f"repos/{self.repo}/issues/comments/{self.progress_comment_id}",
-            "-f",
-            f"body={scrub_secrets(body)}",
-        ], check=False)
+        try:
+            gh([
+                "api",
+                "--method",
+                "PATCH",
+                f"repos/{self.repo}/issues/comments/{self.progress_comment_id}",
+                "-f",
+                f"body={scrub_secrets(body)}",
+            ], check=True)
+        except Exception as e:
+            print(f"Warning: failed to update progress comment: {e}")
 
     def update_task_checklist(self, title: str, steps: list[tuple[str, bool]], detail: str = "") -> None:
         lines = [f"### 🤖 {title}\n"]
@@ -1230,7 +1242,8 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "command": {"type": "string", "description": "The bash command to execute."}
+                            "command": {"type": "string", "description": "The bash command to execute."},
+                            "cwd": {"type": "string", "description": "Optional subdirectory to run the command in (relative to repo root, e.g. 'packages/ui'). Defaults to repo root."}
                         },
                         "required": ["command"]
                     }
@@ -1439,7 +1452,20 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 if re.search(pattern, cmd, re.IGNORECASE):
                     return f"Error: this command is blocked for safety: {cmd}"
 
-            res = run_cmd(["bash", "-lc", cmd], capture=True, check=False)
+            cwd_override = ROOT
+            cwd_arg = args.get("cwd", "")
+            if cwd_arg:
+                cwd_path = (ROOT / cwd_arg).resolve()
+                try:
+                    if not cwd_path.is_relative_to(ROOT_RESOLVED):
+                        return f"Error: cwd must be inside the repository. Got: {cwd_arg}"
+                except ValueError:
+                    return f"Error: invalid cwd path: {cwd_arg}"
+                if not cwd_path.is_dir():
+                    return f"Error: directory not found: {cwd_arg}"
+                cwd_override = cwd_path
+
+            res = run_cmd(["bash", "-lc", cmd], capture=True, check=False, cwd=cwd_override)
             output = scrub_secrets(res.stdout or "")
             if len(output) > 8000:
                 output = "...(truncated)\n" + output[-8000:]

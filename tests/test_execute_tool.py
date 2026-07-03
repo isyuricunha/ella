@@ -167,3 +167,37 @@ class TestEditFile:
             "replace_text": "bar",
         }))
         assert "denied" in result.lower() or "invalid" in result.lower()
+
+
+class TestRunTerminalCommand:
+    def test_runs_from_repo_root_by_default(self, temp_repo):
+        ella = _make_ella_shell()
+        result = ella.execute_tool(
+            "run_terminal_command", json.dumps({"command": "pwd"}))
+        assert "Exit code: 0" in result
+        assert str(temp_repo) in result
+
+    def test_runs_in_cwd_subdirectory(self, temp_repo):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({
+            "command": "pwd",
+            "cwd": "src",
+        }))
+        assert "Exit code: 0" in result
+        assert "src" in result
+
+    def test_rejects_cwd_outside_repo(self, temp_repo):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({
+            "command": "pwd",
+            "cwd": "../../../etc",
+        }))
+        assert "inside the repository" in result.lower()
+
+    def test_rejects_nonexistent_cwd(self, temp_repo):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({
+            "command": "pwd",
+            "cwd": "nonexistent_dir",
+        }))
+        assert "not found" in result.lower()
