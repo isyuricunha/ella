@@ -329,11 +329,31 @@ class TestDetectInstallPython:
         assert "pip" in names
 
     def test_pip_editable_fallback(self, temp_repo, monkeypatch):
-        (temp_repo / "pyproject.toml").write_text("")
+        (temp_repo / "pyproject.toml").write_text(
+            "[build-system]\nbuild-backend = \"hatchling.build\"\n"
+            "[tool.hatch.build.targets.wheel]\npackages = [\"src/mypkg\"]\n"
+        )
         ella = _make_ella_shell()
         commands = ella.detect_install_commands()
         names = [c[0] for c in commands]
         assert "pip-editable" in names
+
+    def test_pyproject_no_build_target_skips_pip_editable(self, temp_repo, monkeypatch):
+        (temp_repo / "pyproject.toml").write_text(
+            "[build-system]\nbuild-backend = \"hatchling.build\"\n"
+            "[tool.hatch.build.targets.wheel]\npackages = []\n"
+        )
+        ella = _make_ella_shell()
+        commands = ella.detect_install_commands()
+        names = [c[0] for c in commands]
+        assert "pip-editable" not in names
+
+    def test_pyproject_empty_no_install(self, temp_repo, monkeypatch):
+        (temp_repo / "pyproject.toml").write_text("")
+        ella = _make_ella_shell()
+        commands = ella.detect_install_commands()
+        names = [c[0] for c in commands]
+        assert "pip-editable" not in names
 
 
 class TestDetectInstallOther:

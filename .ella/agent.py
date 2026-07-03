@@ -234,6 +234,26 @@ def command_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
+def _pyproject_has_build_target(path: Path) -> bool:
+    """Check if a pyproject.toml defines a buildable Python package.
+
+    Returns False for projects that only use pyproject.toml as config
+    (e.g., pytest settings) without any installable code. This prevents
+    'pip install -e .' from failing on hatchling/setuptools with no packages.
+    """
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    if "[project.dependencies]" in text:
+        return True
+    if "[tool.hatch.build" in text and "packages = []" not in text:
+        return True
+    if "build-backend" in text and "[build-system]" in text and "packages = []" not in text:
+        return True
+    return False
+
+
 def safe_rel_path(path: str) -> bool:
     p = Path(path)
     if not path.strip():
@@ -908,7 +928,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             return base + " Classify the issue or PR with common GitHub labels. Return only valid JSON. No Markdown. No code fences."
         if self.mode == "pr":
             return base + " Provide a short, friendly, and helpful analysis of the PR context provided. Do not modify code."
-        return base + " Be friendly, clear, and concise."
+        return base + " Be friendly, clear, and concise. Do not output JSON or tool-call syntax. Answer directly in plain text."
 
     def handle_label(self) -> None:
         response = self.handle_read_only()
@@ -1679,7 +1699,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             elif (ROOT / "requirements.txt").exists():
                 commands.append(
                     ("pip", [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"]))
-            else:
+            elif _pyproject_has_build_target(ROOT / "pyproject.toml"):
                 commands.append(
                     ("pip-editable", [sys.executable, "-m", "pip", "install", "-e", "."]))
         elif (ROOT / "requirements.txt").exists():
