@@ -13,7 +13,13 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
+
+
+class LabelDict(TypedDict):
+    name: str
+    color: str
+    description: str
 
 
 ROOT = Path.cwd()
@@ -23,7 +29,7 @@ RUNNER_TEMP = Path(os.environ.get("RUNNER_TEMP", "/tmp"))
 OUT = RUNNER_TEMP / "ella-output"
 OUT.mkdir(parents=True, exist_ok=True)
 
-SAFE_LABELS_DEFAULT = [
+SAFE_LABELS_DEFAULT: list[LabelDict] = [
     {"name": "bug", "color": "d73a4a", "description": "Something is not working"},
     {"name": "enhancement", "color": "a2eeef",
         "description": "New feature or request"},
@@ -313,7 +319,7 @@ def is_ignored(path: str, patterns: list[str]) -> bool:
     return False
 
 
-def load_labels() -> list[dict[str, str]]:
+def load_labels() -> list[LabelDict]:
     labels_path = AGENT_DIR / "labels.json"
     if not labels_path.exists():
         return SAFE_LABELS_DEFAULT
@@ -322,7 +328,7 @@ def load_labels() -> list[dict[str, str]]:
         data = json.loads(labels_path.read_text(encoding="utf-8"))
         if not isinstance(data, list):
             return SAFE_LABELS_DEFAULT
-        labels: list[dict[str, str]] = []
+        labels: list[LabelDict] = []
         for item in data:
             if not isinstance(item, dict):
                 continue
