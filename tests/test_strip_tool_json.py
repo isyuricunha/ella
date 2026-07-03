@@ -39,3 +39,17 @@ class TestStripToolCallJson:
 
     def test_empty_string(self):
         assert agent._strip_tool_call_json("") == "I could not generate a response. Please try rephrasing your request."
+
+    def test_handles_nested_json(self):
+        # Test with nested JSON object in the tool arguments
+        nested_json = '{"tool": "read_file", "args": {"path": "package.json", "options": {"encoding": "utf-8"}}}'
+        result = agent._strip_tool_call_json(f"Some text\n{nested_json}")
+        assert result == "Some text"
+        assert "tool" not in result
+
+    def test_handles_nested_json_with_array(self):
+        # Test with nested array in the tool arguments
+        nested_json = '{"tool": "search_code", "args": {"patterns": ["foo", "bar"], "options": {"case_sensitive": true}}}'
+        result = agent._strip_tool_call_json(f"Searching...\n{nested_json}")
+        assert result == "Searching..."
+        assert "tool" not in result
