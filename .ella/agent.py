@@ -1316,7 +1316,8 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             
         elif name == "run_tests":
             self.run_project_checks()
-            checks_summary = ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." ) if (OUT / "checks-summary.md").exists() else ""
+            summary_path = OUT / "checks-summary.md"
+            checks_summary = summary_path.read_text(encoding="utf-8", errors="replace") if summary_path.exists() else ""
             return checks_summary or "Checks ran but no output was captured."
             
         elif name == "done":
