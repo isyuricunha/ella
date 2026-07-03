@@ -1886,14 +1886,16 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         commit_type, scope = self.infer_commit_type(changed_files)
         summary = "apply requested changes"
 
+        raw_summary = ""
         summary_path = OUT / "fix-summary.txt"
         if summary_path.exists():
             raw_summary = summary_path.read_text(encoding="utf-8", errors="replace").strip()
-            if raw_summary:
-                first_line = raw_summary.splitlines()[0].strip()
-                first_line = re.sub(r"^(fix|fixed|change|changed|update|updated|add|added):?\s+", "", first_line, flags=re.I)
-                if first_line:
-                    summary = first_line[:90].rstrip(" .")
+
+        if raw_summary:
+            first_line = raw_summary.splitlines()[0].strip()
+            first_line = re.sub(r"^(fix|fixed|change|changed|update|updated|add|added):?\s+", "", first_line, flags=re.I)
+            if first_line:
+                summary = first_line[:90].rstrip(" .")
 
         if self.mode == "solve":
             issue_title = ""
@@ -1912,10 +1914,8 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             f"- Request: {self.prompt}",
         ]
 
-        if summary_path.exists():
-            raw_summary = summary_path.read_text(encoding="utf-8", errors="replace").strip()
-            if raw_summary:
-                body_lines.append(f"- Summary: {raw_summary}")
+        if raw_summary:
+            body_lines.append(f"- Summary: {raw_summary}")
 
         if changed_files:
             body_lines.append("- Changed files:")
@@ -2042,8 +2042,11 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         git(["commit", "--no-verify", "-F", str(path)])
 
         branch = self.pr_info["headRefName"] if self.pr_info else getattr(self, "solve_branch", "")
-        if branch:
-            git(["push", "origin", f"HEAD:{branch}"])
+        if not branch:
+            print("WIP commit skipped: no branch to push to (no pr_info or solve_branch)")
+            return None
+
+        git(["push", "origin", f"HEAD:{branch}"])
 
         return git(["rev-parse", "--short", "HEAD"]).strip()
 
