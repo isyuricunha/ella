@@ -705,7 +705,7 @@ I answer using the configured model.
 I give a short PR analysis.
 
 `/ella review request`
-I do a stricter PR code review. Also runs automatically when a PR is opened or synchronized.
+I do a stricter PR code review. Also runs automatically when a PR is opened or synchronized, but I skip draft PRs.
 
 `/ella plan request`
 I write a plan without editing files.
@@ -977,13 +977,13 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
     def system_prompt_for_read_only(self) -> str:
         base = "You are Ella Mizuki, Yuri's friendly and capable GitHub AI assistant. Write in English in a warm, helpful, and natural tone. Always use the first-person perspective ('I')."
         if self.mode == "review":
-            return base + ' Perform a thorough code review. Focus on bugs, security risks, type issues, and suspicious code. Do not modify code. You MUST return ONLY valid JSON in this exact format: { "summary": "General review summary in Markdown", "comments": [ { "path": "src/file.py", "line": 42, "body": "Comment text" } ] }. Only include comments for lines that actually exist in the diff. No Markdown fences around the JSON.'
+            return base + ' Perform a thorough code review. Focus on bugs, security risks, type issues, and suspicious code. You MUST return ONLY valid JSON in this exact format: { "summary": "General review summary in Markdown", "comments": [ { "path": "src/file.py", "line": 42, "body": "Comment text" } ] }. Only include comments for lines that actually exist in the diff. No Markdown fences around the JSON.'
         if self.mode == "plan":
-            return base + " Create a clear and practical implementation plan. Do not modify code. Include likely files, steps, risks, and checks."
+            return base + " Create a clear and practical implementation plan. Include likely files, steps, risks, and checks."
         if self.mode == "label":
             return base + " Classify the issue or PR with common GitHub labels. Return only valid JSON. No Markdown. No code fences."
         if self.mode == "pr":
-            return base + " Provide a short, friendly, and helpful analysis of the PR context provided. Do not modify code."
+            return base + " Provide a short, friendly, and helpful analysis of the PR context provided."
         return base + " Be friendly, clear, and concise. Do not output JSON or tool-call syntax. Answer directly in plain text."
 
     def handle_label(self) -> None:
@@ -1177,7 +1177,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "filepath": {"type": "string"}
+                            "filepath": {"type": "string", "description": "Path to the file, relative to repo root."}
                         },
                         "required": ["filepath"]
                     }
@@ -1187,11 +1187,11 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 "type": "function",
                 "function": {
                     "name": "edit_file",
-                    "description": "Edit a file by replacing a block of text.",
+                    "description": "Edit a file by finding a unique block of text and replacing it.",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "filepath": {"type": "string"},
+                            "filepath": {"type": "string", "description": "Path to the file, relative to repo root."},
                             "search_text": {"type": "string", "description": "Exact text to replace. Must be unique in the file."},
                             "replace_text": {"type": "string", "description": "The new text"}
                         },
@@ -1203,7 +1203,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 "type": "function",
                 "function": {
                     "name": "run_tests",
-                    "description": "Run the project tests.",
+                    "description": "Run the project checks (auto-detected lint, typecheck, test, and build commands).",
                     "parameters": {
                         "type": "object",
                         "properties": {}
@@ -1214,7 +1214,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 "type": "function",
                 "function": {
                     "name": "done",
-                    "description": "Signal that the task is complete.",
+                    "description": "Signal that the task is complete and provide a summary of what was done.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -1631,7 +1631,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             getattr(self, "repo_instructions", ""),
             "",
             "Tool calling:",
-            "You have access to tools for modifying files, reading files, and searching.",
+            "You have access to these tools: search_code, read_file, edit_file, run_tests, run_terminal_command, think, done.",
             "ALWAYS use tool calls to do your work.",
             "",
             "Rules:",
@@ -2285,8 +2285,9 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
         issue_title = self.issue.get("title", "")
         issue_body = self.issue.get("body", "")
+        issue_author = self.issue.get("user", {}).get("login", "unknown")
 
-        context = f"New Issue:\nTitle: {issue_title}\nBody: {issue_body}\n\nOther Open Issues:\n{json.dumps(other_issues, indent=2)}"
+        context = f"New Issue:\nTitle: {issue_title}\nAuthor: @{issue_author}\nBody: {issue_body}\n\nOther Open Issues:\n{json.dumps(other_issues, indent=2)}"
 
         self.update_task_checklist("Issue Triage", [("Assigning user", True), ("Fetching issues", True), ("Generating response", False)])
 
