@@ -586,6 +586,7 @@ class Ella:
             return
 
     def __repr__(self) -> str:
+        """Return a string representation of the Ella instance for debugging."""
         return f"Ella(repo={self.repo!r}, mode={self.mode!r}, is_pr={self.is_pr})"
 
     def mask_secrets(self) -> None:
