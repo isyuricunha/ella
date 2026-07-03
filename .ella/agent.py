@@ -273,7 +273,7 @@ def _pyproject_has_build_target(path: Path) -> bool:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    if "[project.dependencies]" in text:
+    if "[project]" in text and "dependencies = [" in text:
         return True
     if "[tool.hatch.build" in text and "packages = []" not in text:
         return True
@@ -682,6 +682,9 @@ class Ella:
 
     def help_text(self) -> str:
         return """Available commands:
+
+`/ella help`
+I list the commands I understand.
 
 `/ella ask your question`
 I answer using the configured model.

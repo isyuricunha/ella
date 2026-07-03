@@ -355,6 +355,15 @@ class TestDetectInstallPython:
         names = [c[0] for c in commands]
         assert "pip-editable" not in names
 
+    def test_pyproject_pep621_dependencies_detected(self, temp_repo, monkeypatch):
+        (temp_repo / "pyproject.toml").write_text(
+            "[project]\nname = \"foo\"\ndependencies = [\"requests\"]\n"
+        )
+        ella = _make_ella_shell()
+        commands = ella.detect_install_commands()
+        names = [c[0] for c in commands]
+        assert "pip-editable" in names
+
 
 class TestDetectInstallOther:
     def test_composer_detected(self, temp_repo, monkeypatch):
