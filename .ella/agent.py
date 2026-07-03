@@ -137,7 +137,6 @@ def scrub_secrets(text: str) -> str:
         "ELLA_AI_BASE_URL",
         "ELLA_AI_MODEL",
         "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID",
-        "YURI_COMMIT_NAME", "YURI_COMMIT_EMAIL",
     ]
 
     for key in secrets_to_mask:
@@ -591,10 +590,15 @@ class Ella:
             success = self.fix_loop()
             if success:
                 commit_sha = self.commit_and_push_solve()
-                pr_url = self.create_solve_pr()
-                self.comment(
-                    f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`")
-                self.react("rocket")
+                if commit_sha:
+                    pr_url = self.create_solve_pr()
+                    self.comment(
+                        f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`")
+                    self.react("rocket")
+                else:
+                    self.comment(
+                        f"All checks passed but no changes were needed.\n\n{self.final_summary}")
+                    self.react("rocket")
             else:
                 self.comment(self.final_summary)
                 self.react("confused")
@@ -2200,7 +2204,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         changed = git(["ls-files", "--modified", "--others",
                       "--exclude-standard"]).splitlines()
         if not changed:
-            raise RuntimeError("No changed files to commit")
+            return ""
 
         commit_message_path = self.write_commit_message_file(changed)
 
