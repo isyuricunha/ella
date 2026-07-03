@@ -23,6 +23,7 @@
 - **No Third-Party Support:** I created Ella for my own personal use. I am open-sourcing the code so others can learn from it or adapt it, but **I will not provide support, debugging, or help** for third-party setups. You are on your own!
 - **Intellectual Property:** The name "Ella Mizuki", her persona, and her character concept are my intellectual creation. If you fork or copy this project to use in your own repositories, **please rename your bot and create your own persona**. Do not use the name "Ella" or "Ella Mizuki" for your instances.
 - **Tailored to My Needs:** The logic here reflects what *I* needed. It might not fit your workflow out of the box.
+- **Testing:** This project uses pytest. Run `python3 -m pytest tests/ -v` to verify.
 
 ## 🚀 How to use (At your own risk)
 
