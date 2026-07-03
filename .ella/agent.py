@@ -1728,17 +1728,35 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 if script in scripts:
                     checks.append((f"node-{script}", [*runner, script]))
 
-        if (ROOT / "go.mod").exists() and command_exists("go"):
-            checks.append(
-                ("go-fmt", ["bash", "-lc", 'test -z "$(gofmt -l .)"']))
-            checks.append(("go-vet", ["go", "vet", "./..."]))
-            checks.append(("go-test", ["go", "test", "./..."]))
+        # Stacks with a single marker file + required command.
+        simple_stacks: list[tuple[str, str, list[tuple[str, list[str]]]]] = [
+            ("go.mod", "go", [
+                ("go-fmt", ["bash", "-lc", 'test -z "$(gofmt -l .)"']),
+                ("go-vet", ["go", "vet", "./..."]),
+                ("go-test", ["go", "test", "./..."]),
+            ]),
+            ("Cargo.toml", "cargo", [
+                ("cargo-fmt", ["cargo", "fmt", "--check"]),
+                ("cargo-clippy", ["cargo", "clippy", "--", "-D", "warnings"]),
+                ("cargo-test", ["cargo", "test"]),
+            ]),
+            ("pom.xml", "mvn", [
+                ("maven-test", ["mvn", "test"]),
+            ]),
+        ]
+        for marker, cmd, stack_checks in simple_stacks:
+            if (ROOT / marker).exists() and command_exists(cmd):
+                checks.extend(stack_checks)
 
-        if (ROOT / "Cargo.toml").exists() and command_exists("cargo"):
-            checks.append(("cargo-fmt", ["cargo", "fmt", "--check"]))
-            checks.append(
-                ("cargo-clippy", ["cargo", "clippy", "--", "-D", "warnings"]))
-            checks.append(("cargo-test", ["cargo", "test"]))
+        # .NET: marker is a glob, not a single file.
+        if (any(ROOT.glob("*.sln")) or any(ROOT.glob("**/*.csproj"))) and command_exists("dotnet"):
+            checks.append(("dotnet-restore", ["dotnet", "restore"]))
+            checks.append(("dotnet-build", ["dotnet", "build", "--no-restore"]))
+            checks.append(("dotnet-test", ["dotnet", "test", "--no-build"]))
+
+        # Gradle: requires both a build file and the wrapper script.
+        if ((ROOT / "build.gradle").exists() or (ROOT / "build.gradle.kts").exists()) and (ROOT / "gradlew").exists():
+            checks.append(("gradle-test", ["./gradlew", "test"]))
 
         if (ROOT / "test.py").exists():
             checks.append(("test.py", [sys.executable, "test.py"]))
@@ -1760,19 +1778,6 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 cmd = ["pytest"] if command_exists("pytest") else [
                     sys.executable, "-m", "pytest"]
                 checks.append(("python-pytest", cmd))
-
-        if any(ROOT.glob("*.sln")) or any(ROOT.glob("**/*.csproj")):
-            if command_exists("dotnet"):
-                checks.append(("dotnet-restore", ["dotnet", "restore"]))
-                checks.append(
-                    ("dotnet-build", ["dotnet", "build", "--no-restore"]))
-                checks.append(
-                    ("dotnet-test", ["dotnet", "test", "--no-build"]))
-
-        if (ROOT / "pom.xml").exists() and command_exists("mvn"):
-            checks.append(("maven-test", ["mvn", "test"]))
-        if ((ROOT / "build.gradle").exists() or (ROOT / "build.gradle.kts").exists()) and (ROOT / "gradlew").exists():
-            checks.append(("gradle-test", ["./gradlew", "test"]))
 
         if (ROOT / "composer.json").exists():
             if (ROOT / "vendor/bin/phpunit").exists():
