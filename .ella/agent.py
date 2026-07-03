@@ -258,6 +258,8 @@ def safe_rel_path(path: str) -> bool:
     p = Path(path)
     if not path.strip():
         return False
+    if "\x00" in path:
+        return False
     if p.is_absolute():
         return False
     if ".." in p.parts:
