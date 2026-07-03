@@ -58,9 +58,12 @@ class TestEnvInt:
         monkeypatch.setenv("ELLA_TEST_VAR", "abc")
         assert agent.env_int("ELLA_TEST_VAR", 99) == 99
 
-    def test_default_when_zero_or_negative(self, monkeypatch):
+    def test_zero_is_valid(self, monkeypatch):
+        """Zero is a valid non-negative integer and should be returned, not the default."""
         monkeypatch.setenv("ELLA_TEST_VAR", "0")
-        assert agent.env_int("ELLA_TEST_VAR", 99) == 99
+        assert agent.env_int("ELLA_TEST_VAR", 99) == 0
+
+    def test_default_when_negative(self, monkeypatch):
         monkeypatch.setenv("ELLA_TEST_VAR", "-5")
         assert agent.env_int("ELLA_TEST_VAR", 99) == 99
 

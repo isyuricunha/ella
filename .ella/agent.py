@@ -91,7 +91,7 @@ def env_int(name: str, default: int) -> int:
         return default
     try:
         value = int(raw)
-        return value if value >= 1 else default
+        return value if value >= 0 else default
     except ValueError:
         return default
 
@@ -601,7 +601,7 @@ class Ella:
         self.allowed_files = self.get_pr_changed_files()
         self.create_progress_comment(
             self.generate_message(
-                f"I am starting to work on a PR. Write a short friendly message (1-2 sentences) saying I'm diving in and will report back. No headers.",
+                "I am starting to work on a PR. Write a short friendly message (1-2 sentences) saying I'm diving in and will report back. No headers.",
                 fallback="I started an investigation into this PR and will report back once I have findings."
             )
             + f"\n\n**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes"
