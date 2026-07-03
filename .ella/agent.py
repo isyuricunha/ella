@@ -99,7 +99,7 @@ def env_int(name: str, default: int) -> int:
 TIME_LIMIT_SECONDS = env_int("ELLA_TIME_LIMIT_SECONDS", 3600)
 
 COMMIT_SUBJECT_RE = re.compile(
-    r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|security|style|test)(\([a-z0-9._/-]+\))?!?: .+"
+    r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|audit|security|style|test)(\([a-z0-9._/-]+\))?!?: .+"
 )
 
 MAX_CONTEXT_PR_DIFF_BYTES = env_int("ELLA_MAX_CONTEXT_PR_DIFF_BYTES", 500_000)
@@ -531,7 +531,6 @@ class Ella:
             return
 
         if self.mode == "heal":
-            self.validate_ai_config()
             self.handle_heal()
             return
     def mask_secrets(self) -> None:
@@ -1154,7 +1153,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 "type": "function",
                 "function": {
                     "name": "run_terminal_command",
-                    "description": "Run a terminal command (linter, type checker, ls, git status, etc.) to inspect or validate the code state. Destructive commands (rm -rf, force push, dropping databases, etc.) are blocked.",
+                    "description": "Run a terminal command (linter, type checker, ls, git status, etc.) to inspect or validate the code state. Destructive commands (rm -rf, git push, git reset --hard, git checkout ., git clean, force push, dropping databases, mkfs, etc.) are blocked.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -1346,6 +1345,9 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             return checks_summary or "Checks ran but no output was captured."
             
         elif name == "done":
+            summary = args.get("summary", "")
+            if summary:
+                write_debug("fix-summary.txt", str(summary).strip())
             return "Task completed."
             
         elif name == "think":
@@ -2316,7 +2318,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", True)], "✅ The Wiki documentation has been successfully generated and pushed! Check your repository's Wiki tab.")
 
         except Exception as e:
-            self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", False)], f"❌ I encountered an error while generating or pushing the Wiki: {e}\\n\\nMake sure I have Wiki write permissions!")
+            self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", False)], f"❌ I encountered an error while generating or pushing the Wiki: {e}\n\nMake sure I have Wiki write permissions!")
             print(f"Wiki error: {e}")
 
 def main() -> int:
