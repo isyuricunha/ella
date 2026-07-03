@@ -32,3 +32,18 @@ Optional secrets to fine-tune her limits:
 - `.ella/labels.json`: Definitions for `/ella label`.
 - `.ella/ignore`: Globs/patterns of files she should ignore.
 - `.ella/checks.sh`: Optional custom checks script (see `.ella/checks.sh.example`). When present, it replaces the auto-detected install/check commands.
+
+## AI Tools
+When running `/ella fix`, `/ella continue`, `/ella solve`, or auto-heal, Ella has access to these tools:
+- `search_code`: Search the codebase with `git grep`.
+- `read_file`: Read file contents (path traversal protected).
+- `edit_file`: Replace a unique block of text in a file.
+- `run_tests`: Run the auto-detected project checks (lint, typecheck, test, build).
+- `run_terminal_command`: Run a bash command. Destructive commands are blocked. Optional `cwd` parameter runs the command in a subdirectory (useful for monorepos). Path is validated against the repo root.
+- `think`: Record reasoning before the next action (no execution).
+- `done`: Signal task completion with a summary.
+
+## Automated Behavior
+- **Draft PRs**: Auto-review skips draft PRs. Manual `/ella review` still works on drafts.
+- **Bot Issues**: Triage skips issues created by bots (dependabot, renovate, etc.).
+- **Progress Comments**: Ella posts a progress comment and edits it as she works. If the comment fails to post or update, the error is logged.

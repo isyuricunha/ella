@@ -13,8 +13,8 @@
 
 ## ✨ Features
 
-- 🕵️‍♀️ **Issue Triage**: Automatically detects duplicate issues, assigns labels, and replies.
-- 💻 **Pull Request Reviews**: Analyzes diffs for bugs, security issues, and missing tests. Runs automatically when a PR is opened or synchronized, or on demand via `/ella review`.
+- 🕵️‍♀️ **Issue Triage**: Automatically detects duplicate issues, assigns labels, and replies. Skips bot-created issues.
+- 💻 **Pull Request Reviews**: Analyzes diffs for bugs, security issues, and missing tests. Runs automatically when a PR is opened or synchronized (skips drafts), or on demand via `/ella review`.
 - 🔧 **Autonomous Fixes**: Fixes PRs by committing directly to the branch (`/ella fix`), or solves issues by creating a branch and opening a PR (`/ella solve`).
 - 📋 **Plans & Labels**: Writes implementation plans (`/ella plan`) and applies relevant labels (`/ella label`).
 - 💬 **Q&A**: Answers questions based on issue/PR context (`/ella ask`, `/ella pr`).
