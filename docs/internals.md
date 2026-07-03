@@ -14,10 +14,19 @@ Architecture details and configuration for my Ella agent.
 My required repository secrets (`Settings > Secrets and variables > Actions`):
 
 - `ELLA_AI_BASE_URL`: Base URL for the OpenAI-compatible API.
-- `ELLA_AI_MODEL`: Model name (e.g., `gpt-4o`, `claude-3-5-sonnet`).
+- `ELLA_AI_MODEL`: Model name for coding tasks and reviews (e.g., `claude-sonnet`, `gpt-4o`).
 - `ELLA_AI_API_KEY`: API key.
 - `ELLA_APP_CLIENT_ID` / `ELLA_APP_PRIVATE_KEY`: GitHub App credentials for token generation.
 - `YURI_COMMIT_NAME` / `YURI_COMMIT_EMAIL`: My Git author details for her commits.
+
+### Small Model (Optional)
+A smaller, faster model for read-only and conversational tasks (triage, ask, pr, plan, label, wiki). Falls back to the main model if not set.
+
+- `ELLA_AI_SMALL_MODEL`: Model name (e.g., `claude-haiku`, `gpt-4o-mini`). Defaults to `ELLA_AI_MODEL`.
+- `ELLA_AI_SMALL_API_KEY`: API key for the small model provider. Defaults to `ELLA_AI_API_KEY`.
+- `ELLA_AI_SMALL_BASE_URL`: Base URL for the small model. Defaults to `ELLA_AI_BASE_URL`.
+
+Each small variable falls back independently, so I can set only `ELLA_AI_SMALL_MODEL` and reuse the same API key and base URL.
 
 ### Limits & Token Controls
 Optional secrets to fine-tune her limits:
@@ -42,6 +51,16 @@ When running `/ella fix`, `/ella continue`, `/ella solve`, or auto-heal, Ella ha
 - `run_terminal_command`: Run a bash command. Destructive commands are blocked. Optional `cwd` parameter runs the command in a subdirectory (useful for monorepos). Path is validated against the repo root.
 - `think`: Record reasoning before the next action (no execution).
 - `done`: Signal task completion with a summary.
+
+## Model Routing
+Ella uses two models: a **large** model for tasks requiring deep reasoning, and an optional **small** model for fast, lightweight tasks.
+
+| Model | Modes | Env vars |
+|-------|-------|----------|
+| Large | `fix`, `continue`, `solve`, `heal`, `review` | `ELLA_AI_MODEL`, `ELLA_AI_API_KEY`, `ELLA_AI_BASE_URL` |
+| Small | `ask`, `pr`, `plan`, `label`, `triage`, `wiki` | `ELLA_AI_SMALL_*` (falls back to large) |
+
+Review stays on the large model because it requires deep code analysis (bugs, security, type issues).
 
 ## Automated Behavior
 - **Draft PRs**: Auto-review skips draft PRs. Manual `/ella review` still works on drafts.

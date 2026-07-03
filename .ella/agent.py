@@ -136,6 +136,9 @@ def scrub_secrets(text: str) -> str:
         "ELLA_AI_API_KEY",
         "ELLA_AI_BASE_URL",
         "ELLA_AI_MODEL",
+        "ELLA_AI_SMALL_API_KEY",
+        "ELLA_AI_SMALL_BASE_URL",
+        "ELLA_AI_SMALL_MODEL",
         "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID",
     ]
 
@@ -436,6 +439,10 @@ class Ella:
         self.ai_model = os.environ.get("ELLA_AI_MODEL", "").strip()
         self.ai_api_key = os.environ.get("ELLA_AI_API_KEY", "").strip()
 
+        self.ai_small_model = os.environ.get("ELLA_AI_SMALL_MODEL", "").strip() or self.ai_model
+        self.ai_small_base_url = os.environ.get("ELLA_AI_SMALL_BASE_URL", "").strip() or self.ai_base_url
+        self.ai_small_api_key = os.environ.get("ELLA_AI_SMALL_API_KEY", "").strip() or self.ai_api_key
+
         self.commit_name = "Ella Mizuki"
         self.commit_email = "290269138+ella-mizuki[bot]@users.noreply.github.com"
         
@@ -613,6 +620,9 @@ class Ella:
             "ELLA_AI_BASE_URL",
             "ELLA_AI_MODEL",
             "ELLA_AI_API_KEY",
+            "ELLA_AI_SMALL_BASE_URL",
+            "ELLA_AI_SMALL_MODEL",
+            "ELLA_AI_SMALL_API_KEY",
             "ELLA_APP_PRIVATE_KEY", "ELLA_APP_CLIENT_ID",
             "YURI_COMMIT_NAME", "YURI_COMMIT_EMAIL",
         ]
@@ -914,7 +924,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             {"role": "system", "content": system},
             {"role": "user", "content": context}
         ]
-        content, _ = self.ai_call(messages, MAX_TOKENS[self.mode])
+        content, _ = self.ai_call(messages, MAX_TOKENS[self.mode], use_small=self.mode != "review")
         response = content or ""
         response = _strip_tool_call_json(response)
         write_debug("ai-response.txt", response)
@@ -1255,9 +1265,13 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             }
         ]
 
-    def ai_call(self, messages: list[dict], max_tokens: int, tools: list[dict] | None = None) -> tuple[str, list[dict]]:
+    def ai_call(self, messages: list[dict], max_tokens: int, tools: list[dict] | None = None, use_small: bool = False) -> tuple[str, list[dict]]:
+        model = self.ai_small_model if use_small else self.ai_model
+        base_url = self.ai_small_base_url if use_small else self.ai_base_url
+        api_key = self.ai_small_api_key if use_small else self.ai_api_key
+
         body = {
-            "model": self.ai_model,
+            "model": model,
             "messages": messages,
             "temperature": 0,
             "max_tokens": max_tokens,
@@ -1268,14 +1282,14 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             body["tool_choice"] = "auto"
 
         data = json.dumps(body).encode("utf-8")
-        url = self.ai_base_url.rstrip("/") + "/chat/completions"
+        url = base_url.rstrip("/") + "/chat/completions"
 
         request = urllib.request.Request(
             url,
             data=data,
             method="POST",
             headers={
-                "Authorization": f"Bearer {self.ai_api_key}",
+                "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
                 "Accept": "application/json, text/event-stream",
                 "Cache-Control": "no-cache",
@@ -2295,7 +2309,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": context}
         ]
-        content_resp, _ = self.ai_call(messages, MAX_TOKENS.get("triage", 8192))
+        content_resp, _ = self.ai_call(messages, MAX_TOKENS.get("triage", 8192), use_small=True)
         response = content_resp or ""
         
         self.update_task_checklist("Issue Triage", [("Assigning user", True), ("Fetching issues", True), ("Generating response", True)])
@@ -2384,7 +2398,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context_str}
             ]
-            content_resp, _ = self.ai_call(messages, 8192)
+            content_resp, _ = self.ai_call(messages, 8192, use_small=True)
             wiki_content = content_resp or ""
             
             self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", False)])

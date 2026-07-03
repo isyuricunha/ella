@@ -34,6 +34,9 @@ jobs:
       ELLA_AI_API_KEY: ${{ secrets.ELLA_AI_API_KEY }}
       ELLA_AI_BASE_URL: ${{ secrets.ELLA_AI_BASE_URL }}
       ELLA_AI_MODEL: ${{ secrets.ELLA_AI_MODEL }}
+      ELLA_AI_SMALL_MODEL: ${{ secrets.ELLA_AI_SMALL_MODEL }}
+      ELLA_AI_SMALL_API_KEY: ${{ secrets.ELLA_AI_SMALL_API_KEY }}
+      ELLA_AI_SMALL_BASE_URL: ${{ secrets.ELLA_AI_SMALL_BASE_URL }}
       YURI_COMMIT_NAME: ${{ secrets.YURI_COMMIT_NAME }}
       YURI_COMMIT_EMAIL: ${{ secrets.YURI_COMMIT_EMAIL }}
     steps:
@@ -50,10 +53,15 @@ jobs:
 In your target repository, go to **Settings > Secrets and variables > Actions**, and add the following repository secrets:
 
 - `ELLA_AI_BASE_URL`: The base URL of your LLM API (e.g., `https://api.openai.com/v1`).
-- `ELLA_AI_MODEL`: The model name (e.g., `gpt-4o`).
+- `ELLA_AI_MODEL`: The model name for coding tasks and reviews (e.g., `gpt-4o`).
 - `ELLA_AI_API_KEY`: Your API key for the LLM.
 - `ELLA_APP_CLIENT_ID` & `ELLA_APP_PRIVATE_KEY`: GitHub App credentials.
 - `YURI_COMMIT_NAME` & `YURI_COMMIT_EMAIL`: Your Git author name and email for Co-authored-by trailers.
+
+**Optional - Small Model** (for triage, ask, pr, plan, label, wiki):
+- `ELLA_AI_SMALL_MODEL`: Smaller model name (e.g., `gpt-4o-mini`). Defaults to `ELLA_AI_MODEL` if not set.
+- `ELLA_AI_SMALL_API_KEY`: API key for the small model. Defaults to `ELLA_AI_API_KEY`.
+- `ELLA_AI_SMALL_BASE_URL`: Base URL for the small model. Defaults to `ELLA_AI_BASE_URL`.
 
 ## 3. Personalize the Agent (Optional)
 
