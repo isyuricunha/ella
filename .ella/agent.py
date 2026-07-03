@@ -352,7 +352,7 @@ class Ella:
 
         self.event = json.loads(Path(event_path).read_text(encoding="utf-8"))
         self.repo = os.environ["GITHUB_REPOSITORY"]
-        self.run_id = os.environ.get("GITHUB_RUN_ID", str(int(time.time())))
+        self.run_id = os.environ.get("GITHUB_RUN_ID", "") or f"local{int(time.time()) % 1000000}"
         self.issue_number = -1
         self.issue = self.event.get("issue", {})
         if "issue" in self.event:
