@@ -10,7 +10,7 @@ Setting up Ella in your repository is as easy as adding a single GitHub Actions 
 ## 1. Configure the Workflow
 
 > [!WARNING]
-> **This specific action is hardcoded to only obey the `isyuricunha` GitHub user account.** If you want to use it, you **MUST fork** this repository and change the action reference to point to your own fork!
+> **This specific action is hardcoded to only obey the `isyuricunha` GitHub user account.** If you want to use it, you **MUST fork** this repository, change the action reference to point to your own fork, **and** update the `isyuricunha` username in the `if:` guard inside `.github/workflows/ella-mizuki.yml` and in the `handle_triage` method of `.ella/agent.py`. Failing to do so means the bot will ignore all your comments and issues.
 
 Create a new file in your repository at `.github/workflows/ella.yml` and add the following content:
 
