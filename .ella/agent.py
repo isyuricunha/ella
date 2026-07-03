@@ -2311,13 +2311,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
     def handle_triage(self) -> None:
         self.create_progress_comment("⏳ I am triaging this issue...")
-        self.update_task_checklist("Issue Triage", [("Assigning user", False), ("Fetching issues", False), ("Generating response", False)])
-        try:
-            gh(["issue", "edit", str(self.issue_number), "--repo", self.repo, "--add-assignee", "isyuricunha"])
-        except Exception as e:
-            print(f"Failed to assign user: {e}")
-
-        self.update_task_checklist("Issue Triage", [("Assigning user", True), ("Fetching issues", False), ("Generating response", False)])
+        self.update_task_checklist("Issue Triage", [("Fetching issues", False), ("Generating response", False)])
 
         try:
             issues_json = gh(["issue", "list", "--state", "open", "--json", "number,title,body", "--limit", "80", "--repo", self.repo])
@@ -2341,16 +2335,18 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             "CRITICAL: Never refer to yourself in the third person (e.g. do not say 'the Ella Mizuki AI agent', say 'I').\n\n"
             "Review the provided list of other open issues to see if the new issue is a duplicate. Then, craft your response based on these two scenarios:\n\n"
             "SCENARIO A (Not a duplicate):\n"
-            "Warmly greet the user, acknowledge their issue, and let them know that you've assigned Yuri to look into it soon. Do not mention other issues.\n\n"
+            "Warmly greet the user, acknowledge their issue, and let them know that you've assigned Yuri to look into it soon. Do not mention other issues.\n"
+            "Include the phrase `ASSIGN: yes` on a new line at the end of your response so Yuri gets assigned.\n\n"
             "SCENARIO B (Is a duplicate):\n"
             "Warmly greet the user and politely explain that their issue is highly similar to an existing one (mention it by number, e.g., #123). "
             "Explain that since the feature or bug is already being tracked there, you will close this current issue so they can follow the original one for updates. "
             "DO NOT say that Yuri will look into it or that you've assigned him, because you are closing the issue. "
+            "Do NOT include `ASSIGN: yes` since the issue is being closed as a duplicate.\n"
             "CRITICAL INSTRUCTION: You MUST include the exact phrase `DUPLICATE_OF: #123` on a new line at the very end of your response (replace 123 with the actual number).\n\n"
             "LABELS ASSIGNMENT:\n"
             "If it is NOT a duplicate, you should also assign the most relevant labels. Here are the available labels:\n"
             f"{labels_json}\n"
-            "If any labels apply, include the phrase `LABELS: label1, label2` on a new line at the very end of your response."
+            "If any labels apply, include the phrase `LABELS: label1, label2` on a new line at the end of your response."
         )
         
         if getattr(self, "repo_instructions", ""):
@@ -2362,7 +2358,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
         context = f"New Issue:\nTitle: {issue_title}\nAuthor: @{issue_author}\nBody: {issue_body}\n\nOther Open Issues:\n{json.dumps(other_issues, indent=2)}"
 
-        self.update_task_checklist("Issue Triage", [("Assigning user", True), ("Fetching issues", True), ("Generating response", False)])
+        self.update_task_checklist("Issue Triage", [("Fetching issues", True), ("Generating response", False)])
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -2376,11 +2372,15 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             return
         response = content_resp or ""
         
-        self.update_task_checklist("Issue Triage", [("Assigning user", True), ("Fetching issues", True), ("Generating response", True)])
+        self.update_task_checklist("Issue Triage", [("Fetching issues", True), ("Generating response", True)])
         
         match_duplicate = re.search(r"DUPLICATE_OF:\s*#(\d+)", response)
         match_labels = re.search(r"LABELS:\s*(.+)", response)
-        
+        match_assign = re.search(r"ASSIGN:\s*yes", response, re.IGNORECASE)
+
+        if match_assign:
+            response = response.replace(match_assign.group(0), "").strip()
+
         if match_labels:
             response = response.replace(match_labels.group(0), "").strip()
             labels_str = match_labels.group(1)
@@ -2417,6 +2417,13 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             except Exception as e:
                 print(f"Failed to close issue as duplicate: {e}")
         else:
+            if match_assign:
+                try:
+                    repo_owner = self.event.get("repository", {}).get("owner", {}).get("login", "")
+                    if repo_owner:
+                        gh(["issue", "edit", str(self.issue_number), "--repo", self.repo, "--add-assignee", repo_owner])
+                except Exception as e:
+                    print(f"Failed to assign user: {e}")
             self.comment(response)
 
     def handle_wiki(self) -> None:
