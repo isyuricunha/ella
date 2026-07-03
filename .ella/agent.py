@@ -860,11 +860,13 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
     def generate_message(self, prompt: str, fallback: str, max_tokens: int = 300) -> str:
         """Generate a short natural message using the small model.
 
-        Returns the AI-generated text, or ``fallback`` if the AI call fails.
+        Returns the AI-generated text, or ``fallback`` if the AI call fails
+        or the output looks like leaked reasoning instead of a message.
         """
         system = (
             "You are Ella Mizuki, a GitHub AI assistant. The repository owner is Yuri. "
             "You are not Yuri - you are Ella, his AI assistant. "
+            "Respond with ONLY the message text. No reasoning, no analysis, no thinking process. "
             "Write in English in a warm, natural tone using first-person ('I'). "
             "Be concise (1-3 sentences). Do not use markdown headers or code fences."
         )
@@ -877,7 +879,27 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 max_tokens=max_tokens,
                 use_small=True,
             )
-            return (text or "").strip() or fallback
+            if not text or not text.strip():
+                return fallback
+
+            text = text.strip()
+
+            # Strip common reasoning patterns leaked by small models.
+            # If the output is long and contains reasoning markers, it's not a clean message.
+            lines = text.splitlines()
+            if len(lines) > 6:
+                # Looks like reasoning, not a short message - use fallback
+                print("generate_message: output too long, using fallback")
+                return fallback
+
+            # Remove lines that look like reasoning prefixes
+            reasoning_prefixes = ("Let me", "Let's", "We are", "I need to", "I should",
+                                  "Since", "However", "But note", "Note:", "The user")
+            clean_lines = [l for l in lines if not l.strip().startswith(reasoning_prefixes)]
+            if clean_lines and len(clean_lines) < len(lines):
+                text = "\n".join(clean_lines).strip()
+
+            return text or fallback
         except Exception as exc:
             print(f"generate_message fallback ({exc})")
             return fallback
