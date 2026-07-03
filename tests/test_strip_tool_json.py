@@ -39,3 +39,8 @@ class TestStripToolCallJson:
 
     def test_empty_string(self):
         assert agent._strip_tool_call_json("") == "I could not generate a response. Please try rephrasing your request."
+
+    def test_strips_all_tool_json_lines(self):
+        text = '{"tool": "grep", "pattern": "foo"}\n{"tool": "read_file", "path": "bar"}'
+        result = agent._strip_tool_call_json(text)
+        assert "tool" not in result
