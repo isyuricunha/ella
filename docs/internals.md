@@ -21,7 +21,7 @@ My required repository secrets (`Settings > Secrets and variables > Actions`):
 
 ### Limits & Token Controls
 Optional secrets to fine-tune her limits:
-- `ELLA_MAX_ATTEMPTS`: Max loops for fixes (Default: 15).
+- `ELLA_MAX_ATTEMPTS`: Max loops for fixes (Default: 25 + 2 per allowed file, capped at 300).
 - `ELLA_TIME_LIMIT_SECONDS`: Max execution time (Default: 3600s).
 - `ELLA_MAX_TOKENS_*`: Limits for specific modes (`_ASK`, `_PR`, `_FIX`, `_SOLVE`, `_TRIAGE`).
 - `ELLA_MAX_CONTEXT_*_BYTES`: Limits raw diff/file data context size.

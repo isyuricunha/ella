@@ -95,7 +95,6 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
-MAX_ATTEMPTS = env_int("ELLA_MAX_ATTEMPTS", 120)
 TIME_LIMIT_SECONDS = env_int("ELLA_TIME_LIMIT_SECONDS", 3600)
 
 MAX_CONTEXT_PR_DIFF_BYTES = env_int("ELLA_MAX_CONTEXT_PR_DIFF_BYTES", 500_000)
@@ -363,6 +362,7 @@ class Ella:
         self.issue_info: dict[str, Any] | None = None
         self.allowed_files: list[str] = []
         self.ignore_patterns = load_ignore_patterns()
+        self.max_attempts = self.compute_max_attempts()
 
         self.ai_base_url = os.environ.get("ELLA_AI_BASE_URL", "").strip()
         self.ai_model = os.environ.get("ELLA_AI_MODEL", "").strip()
@@ -473,12 +473,12 @@ class Ella:
             self.create_progress_comment(
                 "👀 I started working on this PR.\n\n"
                 f"Status: preparing context.\n"
-                f"Limit: {MAX_ATTEMPTS} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+                f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
                 if self.mode == "fix"
                 else
                 "👀 I will continue trying to fix this PR.\n\n"
                 f"Status: preparing context.\n"
-                f"Limit: {MAX_ATTEMPTS} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+                f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
             )
             success = self.fix_loop()
             if success:
@@ -498,7 +498,7 @@ class Ella:
             self.create_progress_comment(
                 "👀 I started working on this issue.\n\n"
                 f"Status: preparing branch and context.\n"
-                f"Limit: {MAX_ATTEMPTS} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+                f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
             )
             success = self.fix_loop()
             if success:
@@ -681,7 +681,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         
         lines = [
             f"### 🤖 Ella is working on it...",
-            f"**Limits:** {MAX_ATTEMPTS} turns | {TIME_LIMIT_SECONDS // 60} minutes",
+            f"**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes",
             f"**Time elapsed:** {elapsed}s",
             ""
         ]
@@ -1033,7 +1033,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         self.create_progress_comment(
             "🚑 I am the **Auto-Healer**. I detected a CI failure and I'm automatically trying to fix it!\n\n"
             f"Status: analyzing logs and preparing branch.\n"
-            f"Limit: {MAX_ATTEMPTS} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
+            f"Limit: {self.max_attempts} attempts / {TIME_LIMIT_SECONDS // 60} minutes."
         )
         
         success = self.fix_loop()
@@ -1337,12 +1337,14 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             
         return f"Error: Unknown tool {name}."
 
+    def compute_max_attempts(self) -> int:
+        max_attempts = env_int("ELLA_MAX_ATTEMPTS", 25 + 2 * len(self.allowed_files))
+        return min(max_attempts, 300)
+
     def fix_loop(self) -> bool:
         start = time.time()
         self.fix_start_time = start
-        self.max_attempts = env_int("ELLA_MAX_ATTEMPTS", 25 + 2 * len(self.allowed_files))
-        if self.max_attempts > 300:
-            self.max_attempts = 300
+        self.max_attempts = self.compute_max_attempts()
 
         if not self.prepare_environment():
             self.final_summary = "Failure type: install_failed\n\nInstall failed before I could safely edit.\n\n" + (OUT / "install-summary.md").read_text(encoding="utf-8", errors="replace")
