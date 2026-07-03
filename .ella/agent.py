@@ -147,6 +147,11 @@ def write_debug(name: str, text: str) -> None:
     (OUT / name).write_text(safe_text, encoding="utf-8", errors="replace")
 
 
+def read_checks_summary() -> str:
+    path = OUT / "checks-summary.md"
+    return path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+
+
 def read_text_limited(path: Path, limit: int) -> str:
     try:
         with path.open("rb") as f:
@@ -1318,8 +1323,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             
         elif name == "run_tests":
             self.run_project_checks()
-            summary_path = OUT / "checks-summary.md"
-            checks_summary = summary_path.read_text(encoding="utf-8", errors="replace") if summary_path.exists() else ""
+            checks_summary = read_checks_summary()
             return checks_summary or "Checks ran but no output was captured."
             
         elif name == "done":
@@ -1449,19 +1453,19 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             if done_called:
                 self.update_checklist(attempt, "checking", "working")
                 if self.run_project_checks():
-                    self.final_summary = "I applied the fix successfully.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
+                    self.final_summary = "I applied the fix successfully.\n\n" + read_checks_summary()
                     write_debug("final-summary.md", self.final_summary)
                     self.update_checklist(attempt, "done", "success", "Checks passed! Committing changes.")
                     return True
                 else:
                     self.update_checklist(attempt, "checking", "failed", "Project checks failed. Will retry.")
-                    messages.append({"role": "user", "content": "The project checks failed. Please review the errors and fix them:\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )})
+                    messages.append({"role": "user", "content": "The project checks failed. Please review the errors and fix them:\n" + read_checks_summary()})
                     attempt += 1
                     continue
             
             attempt += 1
 
-        self.final_summary = f"I reached the maximum limit of {self.max_attempts} turns before I could finish the task.\n\nTurns used: {self.max_attempts}/{self.max_attempts}\nStatus: stopped without committing.\n\n" + ( (OUT / "checks-summary.md").read_text(encoding="utf-8", errors="replace") if (OUT / "checks-summary.md").exists() else "No checks run." )
+        self.final_summary = f"I reached the maximum limit of {self.max_attempts} turns before I could finish the task.\n\nTurns used: {self.max_attempts}/{self.max_attempts}\nStatus: stopped without committing.\n\n" + read_checks_summary()
         try:
             wip_sha = self.commit_and_push_wip("turn limit reached")
             if wip_sha:
