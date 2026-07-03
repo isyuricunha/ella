@@ -1359,7 +1359,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             blocked_patterns = [
                 r"\brm\s+-rf\b", r"\brm\s+-fr\b", r"\brm\s+-r\b",
                 r"\bgit\s+push\b", r"\bgit\s+reset\s+--hard\b",
-                r"\bgit\s+checkout\s+\.\b", r"\bgit\s+clean\s+-fd\b",
+                r"\bgit\s+checkout\s+\.\s*$", r"\bgit\s+clean\s+-fd\b",
                 r"\bDROP\s+(?:TABLE|DATABASE)\b", r"\bTRUNCATE\b",
                 r"\bmkfs\b", r"\bdd\s+.*of=/dev/", r"\b:\(\)\s*\{",
             ]

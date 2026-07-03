@@ -273,6 +273,21 @@ class TestBlockedCommands:
         result = ella.execute_tool("run_terminal_command", json.dumps({"command": "echo hello"}))
         assert "blocked" not in result.lower()
 
+    def test_git_push_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "git push origin main"}))
+        assert "blocked" in result.lower()
+
+    def test_git_reset_hard_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "git reset --hard HEAD~1"}))
+        assert "blocked" in result.lower()
+
+    def test_git_checkout_dot_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "git checkout ."}))
+        assert "blocked" in result.lower()
+
     def test_empty_command_rejected(self):
         ella = _make_ella_shell()
         result = ella.execute_tool("run_terminal_command", json.dumps({"command": ""}))
