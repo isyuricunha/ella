@@ -174,10 +174,11 @@ def run_cmd(
     *,
     check: bool = True,
     capture: bool = True,
-    cwd: Path = ROOT,
+    cwd: Path | None = None,
     timeout: int = 900,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    cwd = ROOT if cwd is None else cwd
     if capture:
         result = subprocess.run(
             args,
