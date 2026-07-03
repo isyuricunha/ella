@@ -1644,6 +1644,8 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 if command_exists("bun"):
                     commands.append(
                         ("bun", ["bun", "install", "--frozen-lockfile"]))
+            elif command_exists("bun"):
+                commands.append(("bun", ["bun", "install"]))
 
         if (ROOT / "pyproject.toml").exists():
             if (ROOT / "uv.lock").exists() and command_exists("uv"):
