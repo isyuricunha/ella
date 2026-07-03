@@ -157,6 +157,11 @@ def read_checks_summary() -> str:
     return path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
 
 
+def read_pr_diff_limited() -> str:
+    path = OUT / "pr-diff-limited.txt"
+    return path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+
+
 def read_text_limited(path: Path, limit: int) -> str:
     try:
         with path.open("rb") as f:
@@ -858,8 +863,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 json.dumps(pr_data, indent=2),
                 "",
                 "PR diff, possibly truncated:",
-                (OUT / "pr-diff-limited.txt").read_text(encoding="utf-8",
-                                                        errors="replace") if (OUT / "pr-diff-limited.txt").exists() else "",
+                read_pr_diff_limited(),
             ])
             if comments:
                 lines.append("\nConversation History (Comments):")
@@ -1347,7 +1351,8 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
             blocked_patterns = [
                 r"\brm\s+-rf\b", r"\brm\s+-fr\b", r"\brm\s+-r\b",
-                r"\bgit\s+push.*--force\b", r"\bgit\s+push.*-f\b",
+                r"\bgit\s+push\b", r"\bgit\s+reset\s+--hard\b",
+                r"\bgit\s+checkout\s+\.\b", r"\bgit\s+clean\s+-fd\b",
                 r"\bDROP\s+(?:TABLE|DATABASE)\b", r"\bTRUNCATE\b",
                 r"\bmkfs\b", r"\bdd\s+.*of=/dev/", r"\b:\(\)\s*\{",
             ]
@@ -1547,8 +1552,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 json.dumps(pr_data, indent=2),
                 "",
                 "PR diff, truncated:",
-                (OUT / "pr-diff-limited.txt").read_text(encoding="utf-8",
-                                                        errors="replace") if (OUT / "pr-diff-limited.txt").exists() else "",
+                read_pr_diff_limited(),
                 "",
                 "Allowed files current content, truncated:",
             ])
