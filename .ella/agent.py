@@ -1134,7 +1134,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 "type": "function",
                 "function": {
                     "name": "run_terminal_command",
-                    "description": "Run a read-only terminal command (like a linter, type checker, or ls) to quickly validate the code state before calling run_tests. Do NOT use this to make changes to files.",
+                    "description": "Run a terminal command (linter, type checker, ls, git status, etc.) to inspect or validate the code state. Destructive commands (rm -rf, force push, dropping databases, etc.) are blocked.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -1329,6 +1329,17 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             cmd = args.get("command", "")
             if not cmd:
                 return "Error: command is required."
+
+            blocked_patterns = [
+                r"\brm\s+-rf\b", r"\brm\s+-fr\b", r"\brm\s+-r\b",
+                r"\bgit\s+push.*--force\b", r"\bgit\s+push.*-f\b",
+                r"\bDROP\s+(?:TABLE|DATABASE)\b", r"\bTRUNCATE\b",
+                r"\bmkfs\b", r"\bdd\s+.*of=/dev/", r"\b:\(\)\s*\{",
+            ]
+            for pattern in blocked_patterns:
+                if re.search(pattern, cmd, re.IGNORECASE):
+                    return f"Error: this command is blocked for safety: {cmd}"
+
             res = run_cmd(["bash", "-lc", cmd], capture=True, check=False)
             output = res.stdout or ""
             if len(output) > 8000:
