@@ -7,7 +7,8 @@ module.exports = {
         preset: "angular",
         releaseRules: [
           { type: "refactor", release: "patch" },
-          { type: "audit", release: "patch" }
+          { type: "audit", release: "patch" },
+          { type: "security", release: "patch" }
         ]
       }
     ],
@@ -39,6 +40,9 @@ module.exports = {
               discard = false;
             } else if (type === 'audit') {
               type = 'Security Audits';
+              discard = false;
+            } else if (type === 'security') {
+              type = 'Security Fixes';
               discard = false;
             }
 
