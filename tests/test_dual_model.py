@@ -5,8 +5,6 @@ import json
 import os
 from pathlib import Path
 
-import pytest
-
 AGENT_PATH = Path(__file__).resolve().parent.parent / ".ella" / "agent.py"
 
 
@@ -71,7 +69,6 @@ class TestSmallModelFallback:
 
         ai_api_key = os.environ.get("ELLA_AI_API_KEY", "").strip()
         small_api_key = os.environ.get("ELLA_AI_SMALL_API_KEY", "").strip() or ai_api_key
-        small_base_url = os.environ.get("ELLA_AI_SMALL_BASE_URL", "").strip() or os.environ.get("ELLA_AI_BASE_URL", "").strip()
 
         # Small model is set but key falls back to large
         assert small_api_key == "large-key"

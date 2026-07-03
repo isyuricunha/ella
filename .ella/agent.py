@@ -91,7 +91,7 @@ def env_int(name: str, default: int) -> int:
         return default
     try:
         value = int(raw)
-        return value if value > 0 else default
+        return value if value >= 0 else default
     except ValueError:
         return default
 
@@ -854,31 +854,31 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         elapsed = int(time.time() - getattr(self, "fix_start_time", time.time()))
         
         lines = [
-            f"### 🤖 Ella is working on it...",
+            "### 🤖 Ella is working on it...\n",
             f"**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes",
             f"**Time elapsed:** {elapsed}s",
             ""
         ]
-        
+
         for a in range(1, attempt + 1):
             if a < attempt:
                 lines.append(f"- ❌ Turn {a} (Checks failed, refining...)")
             else:
                 lines.append(f"- [{' ' if status == 'working' else 'x'}] Turn {a}")
-                lines.append(f"  - [x] Preparing context")
+                lines.append("  - [x] Preparing context")
                 if step == "calling":
                     lines.append(f"  - [{' ' if status == 'working' else 'x'}] Calling AI model")
                 elif step == "applying":
-                    lines.append(f"  - [x] Calling AI model")
+                    lines.append("  - [x] Calling AI model")
                     lines.append(f"  - [{' ' if status == 'working' else 'x'}] Applying changes")
                 elif step == "checking":
-                    lines.append(f"  - [x] Calling AI model")
-                    lines.append(f"  - [x] Applying changes")
+                    lines.append("  - [x] Calling AI model")
+                    lines.append("  - [x] Applying changes")
                     lines.append(f"  - [{' ' if status == 'working' else 'x'}] Running project checks")
                 elif step == "done":
-                    lines.append(f"  - [x] Calling AI model")
-                    lines.append(f"  - [x] Applying changes")
-                    lines.append(f"  - [x] Running project checks")
+                    lines.append("  - [x] Calling AI model")
+                    lines.append("  - [x] Applying changes")
+                    lines.append("  - [x] Running project checks")
                 
                 if detail:
                     lines.append(f"\n> {detail}")
@@ -2323,7 +2323,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
 
         try:
             labels_config = load_labels()
-            labels_json = json.dumps([{"name": l["name"], "description": l.get("description", "")} for l in labels_config], indent=2)
+            labels_json = json.dumps([{"name": label["name"], "description": label.get("description", "")} for label in labels_config], indent=2)
             labels_by_name = {x["name"].lower(): x for x in labels_config}
         except Exception as e:
             print(f"Failed to load labels: {e}")

@@ -6,8 +6,6 @@ methods that do not require a live GitHub environment.
 
 import importlib.util
 import json
-import os
-import sys
 from pathlib import Path
 
 import pytest
@@ -58,9 +56,11 @@ class TestEnvInt:
         monkeypatch.setenv("ELLA_TEST_VAR", "abc")
         assert agent.env_int("ELLA_TEST_VAR", 99) == 99
 
-    def test_default_when_zero_or_negative(self, monkeypatch):
+    def test_zero_is_valid(self, monkeypatch):
         monkeypatch.setenv("ELLA_TEST_VAR", "0")
-        assert agent.env_int("ELLA_TEST_VAR", 99) == 99
+        assert agent.env_int("ELLA_TEST_VAR", 99) == 0
+
+    def test_default_when_negative(self, monkeypatch):
         monkeypatch.setenv("ELLA_TEST_VAR", "-5")
         assert agent.env_int("ELLA_TEST_VAR", 99) == 99
 

@@ -1,5 +1,4 @@
 """Test env_int edge cases for zero and negative values."""
-import os
 import pytest
 import importlib.util
 
