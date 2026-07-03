@@ -44,3 +44,7 @@ class TestStripToolCallJson:
         text = '{"tool": "grep", "pattern": "foo"}\n{"tool": "read_file", "path": "bar"}'
         result = agent._strip_tool_call_json(text)
         assert "tool" not in result
+
+    def test_strips_empty_json_object(self):
+        result = agent._strip_tool_call_json("Some text\n{}")
+        assert result == "Some text"

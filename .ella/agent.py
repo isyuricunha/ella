@@ -245,6 +245,16 @@ def _strip_tool_call_json(text: str) -> str:
     import re as _re
     cleaned = _re.sub(r'^\s*\{"tool"\s*:.*?\}\s*$', '', text, flags=_re.MULTILINE)
     cleaned = _re.sub(r'\n+\{"tool"\s*:.*?\}\s*$', '', cleaned, flags=_re.DOTALL)
+    # Also strip empty JSON objects - handle middle case first (surrounded by newlines)
+    cleaned = _re.sub(r'\n\s*\{\}\s*\n', '\n', cleaned)
+    # Then handle start/end cases
+    cleaned = _re.sub(r'^\s*\{\}\s*\n', '', cleaned)
+    cleaned = _re.sub(r'\n\s*\{\}\s*$', '', cleaned)
+    # Handle standalone empty JSON object (entire text is just {})
+    cleaned = _re.sub(r'^\s*\{\}\s*$', '', cleaned, flags=_re.MULTILINE)
+    cleaned = _re.sub(r'\n+\{\}\s*$', '', cleaned, flags=_re.DOTALL)
+    # Clean up multiple consecutive newlines
+    cleaned = _re.sub(r'\n{3,}', '\n\n', cleaned)
     cleaned = cleaned.strip()
     if not cleaned:
         return "I could not generate a response. Please try rephrasing your request."
