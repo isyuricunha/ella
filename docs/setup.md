@@ -40,7 +40,7 @@ jobs:
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'YOUR_USERNAME') ||
       (github.event_name == 'issues' && github.event.action == 'opened') ||
       (github.event_name == 'pull_request_target' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
-      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && github.event.review.user.login == 'YOUR_USERNAME') ||
+      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && (github.event.review.user.login == 'YOUR_USERNAME' || github.event.review.user.login == '${{ secrets.ELLA_APP_SLUG }}[bot]')) ||
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule'
     runs-on: ubuntu-latest

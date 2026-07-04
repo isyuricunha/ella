@@ -1,0 +1,36 @@
+name: E2E Test - Submit Changes Requested
+
+# Temporary workflow to test pull_request_review trigger.
+# Submits a REQUEST_CHANGES review as the Ella bot on a PR,
+# which should trigger the main ella-mizuki workflow's review_fix mode.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review'
+        required: true
+        type: string
+
+jobs:
+  submit-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create app token
+        id: ella_token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.ELLA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ELLA_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Submit changes_requested review
+        env:
+          GH_TOKEN: ${{ steps.ella_token.outputs.token }}
+        run: |
+          gh api repos/${{ github.repository }}/pulls/${{ inputs.pr_number }}/reviews \
+            --method POST \
+            -f event=REQUEST_CHANGES \
+            -f body="E2E test: requesting changes to verify pull_request_review trigger fires review_fix mode."
