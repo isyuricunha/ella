@@ -66,6 +66,14 @@ In your target repository, go to **Settings > Secrets and variables > Actions**,
 - `ELLA_AI_SMALL_API_KEY`: API key for the small model. Defaults to `ELLA_AI_API_KEY`.
 - `ELLA_AI_SMALL_BASE_URL`: Base URL for the small model. Defaults to `ELLA_AI_BASE_URL`.
 
+**Optional - Token Limits** (override defaults for specific modes):
+- `ELLA_MAX_TOKENS_ASK` (default 4096), `ELLA_MAX_TOKENS_PR` (16384), `ELLA_MAX_TOKENS_REVIEW` (16384), `ELLA_MAX_TOKENS_PLAN` (16384), `ELLA_MAX_TOKENS_LABEL` (4096), `ELLA_MAX_TOKENS_FIX` (16384), `ELLA_MAX_TOKENS_CONTINUE` (16384), `ELLA_MAX_TOKENS_SOLVE` (16384), `ELLA_MAX_TOKENS_HEAL` (16384), `ELLA_MAX_TOKENS_TRIAGE` (16384), `ELLA_MAX_TOKENS_QUOTE` (4096), `ELLA_MAX_TOKENS_WIKI` (16384).
+- `ELLA_MAX_ATTEMPTS`: Max loops for fixes (default 25 + 2 per allowed file, capped at 300).
+- `ELLA_TIME_LIMIT_SECONDS`: Max execution time (default 3600s).
+- `ELLA_MAX_CONTEXT_PR_DIFF_BYTES` (500000), `ELLA_MAX_CONTEXT_FILE_BYTES` (120000), `ELLA_MAX_CONTEXT_REQUESTED_FILE_BYTES` (250000), `ELLA_MAX_CONTEXT_REPO_FILES_BYTES` (200000).
+
+**Note on reasoning models**: If your LLM is a reasoning model (e.g., DeepSeek-R1, GLM with thinking), it spends tokens on internal reasoning before generating content. The defaults above are tuned for reasoning models. If you use a non-reasoning model, you can lower these limits to save costs.
+
 ## 3. Personalize the Agent (Optional)
 
 Ella comes with a core persona already configured. However, if you want to provide repository-specific context or rules, you can create any of these files in the root of your target repository (checked in order): `AGENTS.md`, `ELLA.md`, `.github/copilot-instructions.md`, or `.github/ella-instructions.md`. Ella will automatically detect these files and incorporate their instructions!
