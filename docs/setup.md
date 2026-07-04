@@ -16,6 +16,9 @@ Create a new file in your repository at `.github/workflows/ella.yml` and add the
 
 ```yaml
 name: Ella Mizuki
+# To enable weekly quote generation, add a schedule trigger to the on: block:
+#   schedule:
+#     - cron: "0 0 * * 0"
 on:
   issues:
     types: [opened]
@@ -27,8 +30,6 @@ on:
     workflows: ["*"]
     types: [completed]
   workflow_dispatch:
-  # schedule:
-  #   - cron: "0 0 * * 0"  # Uncomment for weekly quote generation
 
 jobs:
   ella:
