@@ -243,7 +243,7 @@ def _retry_cmd(fn, args: list[str], *, check: bool, **kwargs):
     network blips, temporary HTTP 5xx). Gives up immediately on genuine errors
     like unfound branches or permission denied.
     """
-    max_retries = int(os.environ.get("ELLA_CMD_RETRIES", "3"))
+    max_retries = env_int("ELLA_CMD_RETRIES", 3)
     base_delay = 1.0
     last_exc = None
     for attempt in range(1, max_retries + 1):

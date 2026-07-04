@@ -71,6 +71,20 @@ class TestRetryCmd:
         assert result.stdout == "ok"
         assert len(calls) == 1
 
+    def test_handles_empty_env_var_without_crash(self, monkeypatch):
+        """ELLA_CMD_RETRIES set but empty (e.g. undefined GitHub secret) should not crash."""
+        monkeypatch.setattr(agent.time, "sleep", lambda s: None)
+        monkeypatch.setenv("ELLA_CMD_RETRIES", "")
+        calls = []
+
+        def fake_fn(args, *, check, **kwargs):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, "ok", "")
+
+        result = agent._retry_cmd(fake_fn, ["gh", "test"], check=True)
+        assert result.stdout == "ok"
+        assert len(calls) == 1  # default of 3 retries, should succeed first try
+
     def test_retries_on_transient_error(self, monkeypatch):
         calls = []
         monkeypatch.setattr(agent.time, "sleep", lambda s: None)
