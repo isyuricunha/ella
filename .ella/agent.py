@@ -539,7 +539,7 @@ class Ella:
         self.validate_ai_config()
 
         pr_only = {"pr", "review", "fix", "continue"}
-        issue_only = {"plan", "label", "solve"}
+        issue_only = {"ask", "triage", "plan", "label", "solve"}
 
         if (not self.is_pr) and self.mode in pr_only:
             return "That command needs to be used inside a PR."
