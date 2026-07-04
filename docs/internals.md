@@ -3,7 +3,7 @@
 Architecture details and configuration for my Ella agent.
 
 ## Execution Flow
-1. **Trigger**: Triggered by `issues: [opened]`, `issue_comment: [created]`, `pull_request_target: [opened, synchronize]`, `workflow_run: [completed]` (auto-heal on CI failures), or `workflow_dispatch` (quote of the week). A `schedule` trigger is also supported - the workflow file has instructions in a comment above the `on:` block for enabling weekly quote generation on this repo.
+1. **Trigger**: Triggered by `issues: [opened]`, `issue_comment: [created]`, `pull_request_target: [opened, synchronize]`, `pull_request_review: [submitted]` (auto-fix on changes_requested), `workflow_run: [completed]` (auto-heal on CI failures), or `workflow_dispatch` (quote of the week). A `schedule` trigger is also supported - the workflow file has instructions in a comment above the `on:` block for enabling weekly quote generation on this repo.
 2. **Auth**: Uses `actions/create-github-app-token@v3` for a temporary, highly-privileged token.
 3. **Dispatch**: `run()` resolves the mode from the event/comment, then looks up a handler in the `_dispatch` table (replaces the old if/return chain). Each handler is a `_handle_*` method.
 4. **Context**: Reads `GITHUB_EVENT_PATH` and uses `gh` CLI to fetch PR diffs, issues, and directories.
@@ -51,7 +51,7 @@ Ella collects reasoning/thinking tokens from the API separately from content. Bo
 - `.github/ISSUE_TEMPLATE/`: Issue templates (bug report, feature request, question). Blank issues are disabled via `config.yml`.
 
 ## AI Tools
-When running `/ella fix`, `/ella continue`, `/ella solve`, or auto-heal, Ella has access to these tools:
+When running `/ella fix`, `/ella continue`, `/ella solve`, `/ella review` (on changes_requested), or auto-heal, Ella has access to these tools:
 - `search_code`: Search the codebase with `git grep`.
 - `read_file`: Read file contents (path traversal protected).
 - `edit_file`: Replace a unique block of text in a file.
@@ -65,7 +65,7 @@ Ella uses two models: a **large** model for tasks requiring deep reasoning, and 
 
 | Model | Modes | Env vars |
 |-------|-------|----------|
-| Large | `fix`, `continue`, `solve`, `heal`, `review` | `ELLA_AI_MODEL`, `ELLA_AI_API_KEY`, `ELLA_AI_BASE_URL` |
+| Large | `fix`, `continue`, `solve`, `heal`, `review`, `review_fix` | `ELLA_AI_MODEL`, `ELLA_AI_API_KEY`, `ELLA_AI_BASE_URL` |
 | Small | `ask`, `pr`, `plan`, `label`, `triage`, `wiki`, `quote` | `ELLA_AI_SMALL_*` (falls back to large) |
 
 Review stays on the large model because it requires deep code analysis (bugs, security, type issues).
@@ -83,5 +83,6 @@ Review stays on the large model because it requires deep code analysis (bugs, se
 - **Draft PRs**: Auto-review skips draft PRs. Manual `/ella review` still works on drafts.
 - **Bot Issues**: Triage skips issues created by bots (dependabot, renovate, etc.).
 - **Intelligent Assign**: Triage only assigns the repo owner for non-duplicate issues. Duplicates are closed without assignment.
+- **Auto-Fix on Changes Requested**: When a reviewer submits `changes_requested` on a PR, Ella automatically runs the `fix` loop to address the feedback. Approved and commented reviews do not trigger this. Only fires for PRs created by the configured repo owner.
 - **Progress Comments**: Ella posts a progress comment and edits it as she works. The comment shows only the current turn plus a one-line summary of failed attempts (e.g., "5 failed attempts so far"), keeping it compact instead of growing into a wall of text. If the comment fails to post or update, the error is logged.
 - **AI-Generated Messages**: Progress and result messages (fix, solve, heal) are written by the small model via `generate_message` instead of hardcoded templates. Falls back to templates if the AI call fails.

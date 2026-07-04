@@ -584,8 +584,8 @@ class Ella:
         """
         self.validate_ai_config()
 
-        pr_only = {"pr", "review", "fix", "continue"}
-        issue_only = {"ask", "triage", "plan", "label", "solve"}
+        pr_only = {"pr", "review", "fix", "continue", "review_fix"}
+        issue_only = {"ask", "triage", "plan", "label", "solve", "close", "reopen", "assign", "milestone"}
 
         if (not self.is_pr) and self.mode in pr_only:
             return "That command needs to be used inside a PR."
@@ -625,6 +625,129 @@ class Ella:
 
     def _handle_help(self) -> None:
         self.comment(self.help_text())
+        self.react("+1")
+
+    def _handle_close(self) -> None:
+        if self.issue_number < 0:
+            self.comment("I can only close an issue or PR that I can see.")
+            self.react("confused")
+            return
+        valid_reasons = {"completed", "not_planned", "duplicate"}
+        reason_input = self.prompt.strip()
+        state_reason = "not_planned"
+        if reason_input.lower() in valid_reasons:
+            state_reason = reason_input.lower()
+        try:
+            gh([
+                "api", "--method", "PATCH",
+                f"repos/{self.repo}/issues/{self.issue_number}",
+                "-f", "state=closed",
+                "-f", f"state_reason={state_reason}",
+            ])
+        except Exception as exc:
+            print(f"Failed to close #{self.issue_number}: {exc}")
+            self.comment(f"Failed to close #{self.issue_number}. {scrub_secrets(str(exc))}")
+            self.react("confused")
+            return
+        comment_text = reason_input if reason_input and reason_input.lower() not in valid_reasons else ""
+        if comment_text:
+            self.comment(
+                self.generate_message(
+                    f"I just closed #{self.issue_number}. Context: {comment_text}. Write 1-2 friendly sentences as me (Ella). No headers.",
+                    fallback=f"Closed #{self.issue_number}. {comment_text}"
+                )
+            )
+        self.react("+1")
+
+    def _handle_reopen(self) -> None:
+        if self.issue_number < 0:
+            self.comment("I can only reopen an issue or PR that I can see.")
+            self.react("confused")
+            return
+        try:
+            gh([
+                "api", "--method", "PATCH",
+                f"repos/{self.repo}/issues/{self.issue_number}",
+                "-f", "state=open",
+            ])
+        except Exception as exc:
+            print(f"Failed to reopen #{self.issue_number}: {exc}")
+            self.comment(f"Failed to reopen #{self.issue_number}. {scrub_secrets(str(exc))}")
+            self.react("confused")
+            return
+        if self.prompt:
+            self.comment(
+                self.generate_message(
+                    f"I just reopened #{self.issue_number}. Context: {self.prompt}. Write 1-2 friendly sentences as me (Ella). No headers.",
+                    fallback=f"Reopened #{self.issue_number}. {self.prompt}"
+                )
+            )
+        self.react("+1")
+
+    def _handle_assign(self) -> None:
+        if self.issue_number < 0:
+            self.comment("I can only assign someone to an issue or PR that I can see.")
+            self.react("confused")
+            return
+        user = self.prompt.strip().lstrip("@")
+        if not user:
+            self.comment("Tell me who to assign! Example: `/ella assign @username`.")
+            self.react("confused")
+            return
+        try:
+            gh([
+                "issue", "edit", str(self.issue_number),
+                "--repo", self.repo,
+                "--add-assignee", user,
+            ])
+        except Exception as exc:
+            msg = scrub_secrets(str(exc))
+            if "not found" in msg.lower():
+                self.comment(f"User @{user} doesn't exist or can't be assigned to this repo.")
+            else:
+                self.comment(f"Failed to assign @{user}. {msg}")
+            self.react("confused")
+            return
+        self.comment(f"Assigned @{user} to #{self.issue_number}.")
+        self.react("+1")
+
+    def _handle_milestone(self) -> None:
+        if self.issue_number < 0:
+            self.comment("I can only set a milestone on an issue or PR that I can see.")
+            self.react("confused")
+            return
+        title = self.prompt.strip().strip('"').strip("'")
+        if not title:
+            self.comment("Tell me which milestone to set! Example: `/ella milestone \"v2.0\"`.")
+            self.react("confused")
+            return
+        try:
+            milestones_json = gh([
+                "api", "--method", "GET",
+                f"repos/{self.repo}/milestones",
+                "--paginate",
+            ])
+            milestones = json.loads(milestones_json)
+            milestone_number = None
+            for m in milestones:
+                if m.get("title", "").lower() == title.lower():
+                    milestone_number = m["number"]
+                    break
+            if milestone_number is None:
+                self.comment(f"Milestone \"{title}\" not found. Available milestones: {', '.join(m.get('title', '') for m in milestones) or 'none'}.")
+                self.react("confused")
+                return
+            gh([
+                "issue", "edit", str(self.issue_number),
+                "--repo", self.repo,
+                "--milestone", str(milestone_number),
+            ])
+        except Exception as exc:
+            print(f"Failed to set milestone on #{self.issue_number}: {exc}")
+            self.comment(f"Failed to set milestone. {scrub_secrets(str(exc))}")
+            self.react("confused")
+            return
+        self.comment(f"Added #{self.issue_number} to milestone \"{title}\".")
         self.react("+1")
 
     def _handle_read_only(self) -> None:
@@ -850,6 +973,11 @@ class Ella:
         "solve": _handle_solve,
         "heal": _handle_heal,
         "quote": _handle_quote,
+        "close": _handle_close,
+        "reopen": _handle_reopen,
+        "assign": _handle_assign,
+        "milestone": _handle_milestone,
+        "review_fix": _handle_fix,
     }
 
     def mask_secrets(self) -> None:
@@ -891,11 +1019,23 @@ class Ella:
             self.prompt = "Please perform a thorough code review of this PR."
             return
 
+        if event_name == "pull_request_review" and self.event.get("action") == "submitted":
+            review = self.event.get("review", {})
+            if review.get("state") == "changes_requested":
+                self.mode = "review_fix"
+                review_body = review.get("body", "").strip()
+                self.prompt = f"A reviewer requested changes on this PR. Address the review feedback and fix any issues. Keep changes minimal and safe. Review body:\n{review_body}" if review_body else "A reviewer requested changes on this PR. Address the review feedback and fix any issues. Keep changes minimal and safe."
+                return
+
         body = str(self.comment_event.get("body", "")).strip()
         commands = [
             ("help", r"(?:^|\s)/ella\s+help"),
             ("continue", r"(?:^|\s)/ella\s+continue"),
             ("review", r"(?:^|\s)/ella\s+review"),
+            ("milestone", r"(?:^|\s)/ella\s+milestone"),
+            ("reopen", r"(?:^|\s)/ella\s+reopen"),
+            ("assign", r"(?:^|\s)/ella\s+assign"),
+            ("close", r"(?:^|\s)/ella\s+close"),
             ("label", r"(?:^|\s)/ella\s+label"),
             ("solve", r"(?:^|\s)/ella\s+solve"),
             ("wiki", r"(?:^|\s)/ella\s+wiki"),
@@ -958,7 +1098,7 @@ I answer based on the issue/PR text in context (no code search).
 I give you a quick PR summary - changes, risks, merge readiness.
 
 `/ella review request`
-I do a thorough code review. Also runs automatically on PR open/synchronize (skips drafts).
+I do a thorough code review. Also runs automatically on PR open/synchronize (skips drafts). When a reviewer requests changes, I automatically try to fix them.
 
 `/ella plan request`
 I write an implementation plan without touching any files.
@@ -977,6 +1117,18 @@ I keep trying to fix the PR if the previous attempt hit a limit.
 
 `/ella solve request`
 On an issue, I create a branch, fix it, run checks, and open a PR.
+
+`/ella close [reason]`
+I close this issue or PR. Reason can be `completed`, `not_planned`, `duplicate`, or any text (defaults to not_planned).
+
+`/ella reopen [comment]`
+I reopen a closed issue or PR with an optional comment.
+
+`/ella assign @user`
+I assign a user to this issue or PR.
+
+`/ella milestone "name"`
+I add this issue or PR to a GitHub milestone by name.
 
 **Quote of the week** (automated):
 Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh quote, update the README, and commit."""
@@ -2005,7 +2157,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             "\n".join(self.allowed_files),
         ]
 
-        if self.mode in {"fix", "continue"}:
+        if self.mode in {"fix", "continue", "review_fix"}:
             pr_data = dict(self.pr_info or {})
             comments = pr_data.pop("comments", [])
             lines.extend([
