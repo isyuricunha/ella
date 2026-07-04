@@ -6,7 +6,7 @@ def truncate_words(text: str, max_words: int) -> str:
     words = text.split()
     if len(words) <= max_words:
         return text
-    return " ".join(words[:max_words - 1]) + "..."
+    return " ".join(words[:max_words]) + "..."
 
 
 def count_vowels(text: str) -> int:
