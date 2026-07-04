@@ -10,7 +10,7 @@ on:
   workflow_run:
     workflows: ["*"]
     types: [completed]
-  workflow_dispatch:
+  workflow_dispatch: {}
   # schedule:
   #   - cron: "0 0 * * 0"  # Uncomment to enable weekly quote generation on this repo
 
