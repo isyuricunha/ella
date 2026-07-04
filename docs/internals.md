@@ -33,7 +33,10 @@ Optional secrets to fine-tune her limits:
 - `ELLA_MAX_ATTEMPTS`: Max loops for fixes (Default: 25 + 2 per allowed file, capped at 300).
 - `ELLA_TIME_LIMIT_SECONDS`: Max execution time (Default: 3600s).
 - `ELLA_MAX_TOKENS_*`: Limits for specific modes (`_ASK`, `_PR`, `_REVIEW`, `_PLAN`, `_LABEL`, `_FIX`, `_CONTINUE`, `_SOLVE`, `_HEAL`, `_TRIAGE`, `_QUOTE`).
-- `ELLA_MAX_CONTEXT_*_BYTES`: Limits raw diff/file data context size.
+- `ELLA_MAX_CONTEXT_PR_DIFF_BYTES`: Max bytes for PR diff context (Default: 500,000).
+- `ELLA_MAX_CONTEXT_FILE_BYTES`: Max bytes per file when reading (Default: 120,000).
+- `ELLA_MAX_CONTEXT_REQUESTED_FILE_BYTES`: Max bytes for a single file requested by the model (Default: 250,000).
+- `ELLA_MAX_CONTEXT_REPO_FILES_BYTES`: Max bytes for the full repo file listing (Default: 200,000).
 
 ## Files
 - `.ella/agent.py`: Core script.
@@ -66,6 +69,7 @@ Review stays on the large model because it requires deep code analysis (bugs, se
 ## Architecture
 - **Dispatch table**: `run()` reads the event and comment to determine the mode, then looks up the handler in `_dispatch` (a `dict[str, callable]`). Each mode maps to a `_handle_*` method, replacing the old if/return chain. Shared validation lives in `_validate_and_load_context`.
 - **`generate_message`**: A helper that calls the small model to write short, natural messages (1-3 sentences) for progress and result comments. Falls back to template strings if the AI call fails or output looks like leaked reasoning.
+- **`_strip_tool_call_json`**: Sanitizes read-only model output (ask, pr, plan, label) by removing hallucinated tool-call syntax - both JSON-style (`{"tool": "read_file", ...}`) and XML-style tags. Without this, raw tool-call syntax would leak into posted comments.
 
 ## Automated Behavior
 - **Draft PRs**: Auto-review skips draft PRs. Manual `/ella review` still works on drafts.
