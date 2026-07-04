@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import base64
 import fnmatch
 import json
 import os
@@ -642,6 +643,7 @@ class Ella:
         self.checkout_pr_branch()
         self.load_repo_instructions()
         self.allowed_files = self.get_pr_changed_files()
+        self.max_attempts = self.compute_max_attempts()
         self.create_progress_comment(
             self.generate_message(
                 "I'm diving into this PR. Write 1-2 friendly sentences saying I'll investigate and report back. No headers.",
@@ -680,6 +682,7 @@ class Ella:
         self.checkout_solve_branch()
         self.load_repo_instructions()
         self.allowed_files = self.get_repo_files()
+        self.max_attempts = self.compute_max_attempts()
         self.create_progress_comment(
             self.generate_message(
                 "I'm setting up a branch for this issue. Write 1-2 friendly sentences saying I'll dive in and report back. No headers.",
@@ -2702,13 +2705,19 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 raise RuntimeError("GH_TOKEN is missing")
 
             wiki_dir = Path(tempfile.mkdtemp())
-            wiki_url = f"https://x-access-token:{token}@github.com/{self.repo}.wiki.git"
+            wiki_origin = f"https://github.com/{self.repo}.wiki.git"
+            auth_b64 = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+            auth_header = f"Authorization: Basic {auth_b64}"
+
+            def _git_wiki(gargs: list[str]) -> str:
+                return git(["-c", f"http.https://github.com/.extraHeader={auth_header}", *gargs])
 
             try:
-                git(["clone", "--depth", "1", wiki_url, str(wiki_dir)])
+                _git_wiki(["clone", "--depth", "1", wiki_origin, str(wiki_dir)])
             except CommandError:
                 run_cmd(["git", "init", str(wiki_dir)], capture=True)
                 run_cmd(["git", "-C", str(wiki_dir), "checkout", "-b", "master"], capture=True)
+                _git_wiki(["remote", "add", "origin", wiki_origin])
 
             for filename, content in pages.items():
                 if not filename.endswith(".md"):
@@ -2726,7 +2735,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 msg += f"\n\nCo-authored-by: {self.yuri_name} <{self.yuri_email}>"
 
             run_cmd(["git", "-C", str(wiki_dir), "commit", "-m", msg], capture=True)
-            run_cmd(["git", "-C", str(wiki_dir), "push", "origin", "master"], capture=True)
+            _git_wiki(["-C", str(wiki_dir), "push", "origin", "master"])
 
             shutil.rmtree(wiki_dir, ignore_errors=True)
 
