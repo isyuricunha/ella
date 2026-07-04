@@ -10,6 +10,30 @@ inputs:
   ella_app_private_key:
     description: 'GitHub App Private Key for authentication'
     required: true
+  ai_base_url:
+    description: 'Base URL for the OpenAI-compatible LLM API (large model)'
+    required: true
+  ai_model:
+    description: 'Model name for coding tasks and reviews'
+    required: true
+  ai_api_key:
+    description: 'API key for the large model provider'
+    required: true
+  ai_small_model:
+    description: 'Smaller model name for read-only/conversational tasks. Defaults to ai_model.'
+    required: false
+  ai_small_api_key:
+    description: 'API key for the small model provider. Defaults to ai_api_key.'
+    required: false
+  ai_small_base_url:
+    description: 'Base URL for the small model. Defaults to ai_base_url.'
+    required: false
+  yuri_commit_name:
+    description: 'Git author name for commit metadata'
+    required: false
+  yuri_commit_email:
+    description: 'Git author email for commit metadata'
+    required: false
 runs:
   using: 'composite'
   steps:
@@ -23,7 +47,7 @@ runs:
         permission-issues: write
         permission-pull-requests: write
         permission-actions: read
-        
+
     - name: Checkout repository
       uses: actions/checkout@v7
       with:
@@ -34,5 +58,13 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ steps.ella_token.outputs.token }}
+        ELLA_AI_BASE_URL: ${{ inputs.ai_base_url }}
+        ELLA_AI_MODEL: ${{ inputs.ai_model }}
+        ELLA_AI_API_KEY: ${{ inputs.ai_api_key }}
+        ELLA_AI_SMALL_MODEL: ${{ inputs.ai_small_model }}
+        ELLA_AI_SMALL_API_KEY: ${{ inputs.ai_small_api_key }}
+        ELLA_AI_SMALL_BASE_URL: ${{ inputs.ai_small_base_url }}
+        YURI_COMMIT_NAME: ${{ inputs.yuri_commit_name }}
+        YURI_COMMIT_EMAIL: ${{ inputs.yuri_commit_email }}
       run: |
         python3 ${{ github.action_path }}/.ella/agent.py

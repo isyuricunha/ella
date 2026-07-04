@@ -34,15 +34,6 @@ on:
 jobs:
   ella:
     runs-on: ubuntu-latest
-    env:
-      ELLA_AI_API_KEY: ${{ secrets.ELLA_AI_API_KEY }}
-      ELLA_AI_BASE_URL: ${{ secrets.ELLA_AI_BASE_URL }}
-      ELLA_AI_MODEL: ${{ secrets.ELLA_AI_MODEL }}
-      ELLA_AI_SMALL_MODEL: ${{ secrets.ELLA_AI_SMALL_MODEL }}
-      ELLA_AI_SMALL_API_KEY: ${{ secrets.ELLA_AI_SMALL_API_KEY }}
-      ELLA_AI_SMALL_BASE_URL: ${{ secrets.ELLA_AI_SMALL_BASE_URL }}
-      YURI_COMMIT_NAME: ${{ secrets.YURI_COMMIT_NAME }}
-      YURI_COMMIT_EMAIL: ${{ secrets.YURI_COMMIT_EMAIL }}
     steps:
       - name: Run Ella
         # REPLACE WITH YOUR GITHUB USERNAME AND FORK NAME
@@ -50,6 +41,14 @@ jobs:
         with:
           ella_app_client_id: ${{ secrets.ELLA_APP_CLIENT_ID }}
           ella_app_private_key: ${{ secrets.ELLA_APP_PRIVATE_KEY }}
+          ai_base_url: ${{ secrets.ELLA_AI_BASE_URL }}
+          ai_model: ${{ secrets.ELLA_AI_MODEL }}
+          ai_api_key: ${{ secrets.ELLA_AI_API_KEY }}
+          ai_small_model: ${{ secrets.ELLA_AI_SMALL_MODEL }}
+          ai_small_api_key: ${{ secrets.ELLA_AI_SMALL_API_KEY }}
+          ai_small_base_url: ${{ secrets.ELLA_AI_SMALL_BASE_URL }}
+          yuri_commit_name: ${{ secrets.YURI_COMMIT_NAME }}
+          yuri_commit_email: ${{ secrets.YURI_COMMIT_EMAIL }}
 ```
 
 ## 2. Set GitHub Secrets
@@ -60,7 +59,7 @@ In your target repository, go to **Settings > Secrets and variables > Actions**,
 - `ELLA_AI_MODEL`: The model name for coding tasks and reviews (e.g., `gpt-4o`).
 - `ELLA_AI_API_KEY`: Your API key for the LLM.
 - `ELLA_APP_CLIENT_ID` & `ELLA_APP_PRIVATE_KEY`: GitHub App credentials.
-- `YURI_COMMIT_NAME` & `YURI_COMMIT_EMAIL`: Your Git author name and email for Co-authored-by trailers.
+- `YURI_COMMIT_NAME` & `YURI_COMMIT_EMAIL`: Git author name and email for commit metadata.
 
 **Optional - Small Model** (for triage, ask, pr, plan, label, wiki, quote):
 - `ELLA_AI_SMALL_MODEL`: Smaller model name (e.g., `gpt-4o-mini`). Defaults to `ELLA_AI_MODEL` if not set.
