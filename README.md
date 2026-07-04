@@ -100,4 +100,3 @@ This project is licensed under the **GNU AGPLv3 License**. This ensures that the
 **a sentence to brighten your day:**<br>
     every line of code brings you closer to your vision
 
-
