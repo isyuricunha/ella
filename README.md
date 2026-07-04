@@ -98,5 +98,5 @@ Blank issues are disabled to ensure enough context is provided.
 This project is licensed under the **GNU AGPLv3 License**. This ensures that the code remains free and open-source forever. If you modify this code and run it as a service (including as a GitHub Action), you must release your modified source code.
 
 **a sentence to brighten your day:**<br>
-    every line of code brings you closer to your vision
+    every line of code is a step forward
 
