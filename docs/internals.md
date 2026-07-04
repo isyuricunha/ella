@@ -3,7 +3,7 @@
 Architecture details and configuration for my Ella agent.
 
 ## Execution Flow
-1. **Trigger**: Triggered by `issues: [opened]`, `issue_comment: [created]`, `pull_request_target: [opened, synchronize]`, or `workflow_run: [completed]` (auto-heal on CI failures).
+1. **Trigger**: Triggered by `issues: [opened]`, `issue_comment: [created]`, `pull_request_target: [opened, synchronize]`, `workflow_run: [completed]` (auto-heal on CI failures), or `schedule`/`workflow_dispatch` (quote of the week).
 2. **Auth**: Uses `actions/create-github-app-token@v3` for a temporary, highly-privileged token.
 3. **Dispatch**: `run()` resolves the mode from the event/comment, then looks up a handler in the `_dispatch` table (replaces the old if/return chain). Each handler is a `_handle_*` method.
 4. **Context**: Reads `GITHUB_EVENT_PATH` and uses `gh` CLI to fetch PR diffs, issues, and directories.
@@ -59,7 +59,7 @@ Ella uses two models: a **large** model for tasks requiring deep reasoning, and 
 | Model | Modes | Env vars |
 |-------|-------|----------|
 | Large | `fix`, `continue`, `solve`, `heal`, `review` | `ELLA_AI_MODEL`, `ELLA_AI_API_KEY`, `ELLA_AI_BASE_URL` |
-| Small | `ask`, `pr`, `plan`, `label`, `triage`, `wiki` | `ELLA_AI_SMALL_*` (falls back to large) |
+| Small | `ask`, `pr`, `plan`, `label`, `triage`, `wiki`, `quote` | `ELLA_AI_SMALL_*` (falls back to large) |
 
 Review stays on the large model because it requires deep code analysis (bugs, security, type issues).
 

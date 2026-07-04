@@ -120,6 +120,7 @@ MAX_TOKENS = {
     "solve": env_int("ELLA_MAX_TOKENS_SOLVE", 16384),
     "heal": env_int("ELLA_MAX_TOKENS_HEAL", 16384),
     "triage": env_int("ELLA_MAX_TOKENS_TRIAGE", 8192),
+    "quote": env_int("ELLA_MAX_TOKENS_QUOTE", 120),
 }
 
 
@@ -424,7 +425,8 @@ class Ella:
         self.comment_event = self.event.get("comment", {})
         self.comment_id = int(self.comment_event.get("id", 0))
         self.is_pr = "pull_request" in self.event or "pull_request" in self.issue
-        self.default_branch = self.event["repository"]["default_branch"]
+        repo = self.event.get("repository", {}) or {}
+        self.default_branch = repo.get("default_branch") or "main"
 
         self.mode = "unknown"
         self.prompt = ""
@@ -673,6 +675,76 @@ class Ella:
     def _handle_heal(self) -> None:
         self.handle_heal()
 
+    def _handle_quote(self) -> None:
+        """Generate a short quote via the small model, rewrite README, commit, push."""
+        self.validate_ai_config()
+        system = (
+            "You generate a single short quote of the week for a developer's "
+            "GitHub profile README. Output exactly one line, 5 to 15 words, "
+            "motivational or reflective, never political or divisive. No "
+            "quotation marks around it. No attribution. No markdown. No "
+            "first person. Just the sentence, capitalized, no trailing period."
+        )
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": self.prompt or
+                "Generate a short uplifting quote of the week for a developer's GitHub profile README."},
+        ]
+        try:
+            content, _ = self.ai_call(messages, MAX_TOKENS["quote"], use_small=True)
+        except Exception as exc:
+            print(f"AI call failed during quote: {exc}")
+            return
+
+        quote = self._sanitize_quote(content or "")
+        if not quote:
+            print("Quote generation produced no usable output; skipping commit.")
+            return
+
+        self._rewrite_readme_quote(quote)
+        self._commit_readme()
+
+    @staticmethod
+    def _sanitize_quote(raw: str) -> str:
+        s = raw.strip()
+        if s.startswith("```"):
+            s = s.strip("`")
+            lines = [l for l in s.splitlines()
+                     if not l.strip().startswith(("python", "text", "markdown"))]
+            s = "\n".join(lines).strip()
+        line = next((l.strip() for l in s.splitlines() if l.strip()), "")
+        line = line.strip(' ""`')
+        if len(line) > 140:
+            line = line[:137].rstrip() + "..."
+        return line
+
+    @staticmethod
+    def _rewrite_readme_quote(quote: str) -> None:
+        path = Path("README.md")
+        readme = path.read_text(encoding="utf-8") if path.exists() else ""
+        marker = "**a sentence to brighten your day:**<br>"
+        new_block = f"{marker}\n    {quote}\n"
+        if marker in readme:
+            before = readme.split(marker, 1)[0]
+            readme = before + new_block + "\n"
+        else:
+            readme = readme.rstrip("\n") + "\n\n" + new_block + "\n"
+        path.write_text(readme, encoding="utf-8")
+
+    def _commit_readme(self) -> None:
+        name = self.yuri_name or self.commit_name
+        email = self.yuri_email or self.commit_email
+        git(["config", "user.name", name])
+        git(["config", "user.email", email])
+        changed = git(["ls-files", "--modified", "--others", "--exclude-standard"],
+                      check=False).splitlines()
+        if "README.md" not in changed:
+            print("No README changes to commit.")
+            return
+        git(["add", "README.md"])
+        git(["commit", "--no-verify", "-m", "update week quote"])
+        git(["push", "origin", f"HEAD:{self.default_branch}"])
+
     # --- Dispatch table ---
     _dispatch: dict[str, Any] = {
         "wiki": _handle_wiki,
@@ -687,7 +759,9 @@ class Ella:
         "continue": _handle_fix,
         "solve": _handle_solve,
         "heal": _handle_heal,
+        "quote": _handle_quote,
     }
+
     def mask_secrets(self) -> None:
         secrets = [
             "GH_TOKEN", "GITHUB_TOKEN",
@@ -715,6 +789,11 @@ class Ella:
         if event_name == "workflow_run" and self.event.get("action") == "completed":
             self.mode = "heal"
             self.prompt = ""
+            return
+
+        if event_name in {"schedule", "workflow_dispatch"}:
+            self.mode = "quote"
+            self.prompt = "Generate a short uplifting quote of the week for a developer's GitHub profile README."
             return
 
         if event_name in {"pull_request", "pull_request_target"} and self.event.get("action") in {"opened", "synchronize"}:
@@ -807,7 +886,10 @@ I try to fix the current PR, run checks, and commit.
 I continue trying to fix the current PR with more attempts.
 
 `/ella solve request`
-On an issue, I create a branch, try to solve it, run checks, and open a PR."""
+On an issue, I create a branch, try to solve it, run checks, and open a PR.
+
+**Quote of the week** (automated):
+Triggered by a scheduled workflow (`schedule` or `workflow_dispatch` event), not a comment. I generate a fresh quote, rewrite the README quote line, and commit."""
 
     def react(self, content: str) -> None:
         try:

@@ -19,6 +19,7 @@
 - 📋 **Plans & Labels**: Writes implementation plans (`/ella plan`) and applies relevant labels (`/ella label`).
 - 💬 **Q&A**: Answers questions based on issue/PR context (`/ella ask`, `/ella pr`).
 - 📚 **Wiki Generation**: Reads the entire codebase and generates a comprehensive, multi-page GitHub Wiki.
+- 📝 **Quote of the Week**: Generates a fresh, AI-written quote in the profile README on a weekly cron. Triggered by `schedule`/`workflow_dispatch` events, not a slash command.
 - ⚡ **Fully Localized**: Runs as a single `agent.py` script orchestrated entirely by GitHub Actions.
 
 ## ⚠️ Important Notice

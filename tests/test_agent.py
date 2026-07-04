@@ -292,3 +292,164 @@ class TestBlockedCommands:
         ella = _make_ella_shell()
         result = ella.execute_tool("run_terminal_command", json.dumps({"command": ""}))
         assert "required" in result.lower()
+
+
+# --- __init__ defensive behavior ---
+
+
+class TestInitDefaultBranch:
+    def test_missing_repository_key_does_not_crash(self, monkeypatch, tmp_path):
+        event = {}  # no "repository" key at all
+        p = tmp_path / "event.json"
+        p.write_text(json.dumps(event))
+        monkeypatch.setenv("GITHUB_EVENT_PATH", str(p))
+        monkeypatch.setenv("GITHUB_REPOSITORY", "isyuricunha/ella")
+        obj = agent.Ella()
+        assert obj.default_branch == "main"
+
+    def test_missing_default_branch_key_falls_back(self, monkeypatch, tmp_path):
+        event = {"repository": {}}  # repository present but no default_branch
+        p = tmp_path / "event.json"
+        p.write_text(json.dumps(event))
+        monkeypatch.setenv("GITHUB_EVENT_PATH", str(p))
+        monkeypatch.setenv("GITHUB_REPOSITORY", "isyuricunha/ella")
+        obj = agent.Ella()
+        assert obj.default_branch == "main"
+
+    def test_default_branch_present(self, monkeypatch, tmp_path):
+        event = {"repository": {"default_branch": "develop"}}
+        p = tmp_path / "event.json"
+        p.write_text(json.dumps(event))
+        monkeypatch.setenv("GITHUB_EVENT_PATH", str(p))
+        monkeypatch.setenv("GITHUB_REPOSITORY", "isyuricunha/ella")
+        obj = agent.Ella()
+        assert obj.default_branch == "develop"
+
+
+# --- quote mode registration ---
+
+
+class TestQuoteModeRegistration:
+    def test_quote_in_max_tokens(self):
+        assert "quote" in agent.MAX_TOKENS
+        assert agent.MAX_TOKENS["quote"] >= 60
+
+    def test_quote_default_prompt_in_defaults(self, monkeypatch, tmp_path):
+        event = {"repository": {"default_branch": "main"}}
+        p = tmp_path / "event.json"
+        p.write_text(json.dumps(event))
+        monkeypatch.setenv("GITHUB_EVENT_PATH", str(p))
+        monkeypatch.setenv("GITHUB_REPOSITORY", "isyuricunha/ella")
+        monkeypatch.setenv("GITHUB_EVENT_NAME", "schedule")
+        obj = agent.Ella()
+        obj.parse_command()
+        assert obj.mode == "quote"
+        assert "quote" in obj.prompt.lower()
+
+    def test_workflow_dispatch_routes_to_quote(self, monkeypatch, tmp_path):
+        event = {"repository": {"default_branch": "main"}}
+        p = tmp_path / "event.json"
+        p.write_text(json.dumps(event))
+        monkeypatch.setenv("GITHUB_EVENT_PATH", str(p))
+        monkeypatch.setenv("GITHUB_REPOSITORY", "isyuricunha/ella")
+        monkeypatch.setenv("GITHUB_EVENT_NAME", "workflow_dispatch")
+        obj = agent.Ella()
+        obj.parse_command()
+        assert obj.mode == "quote"
+
+
+# --- _handle_quote ---
+
+
+def _make_quote_shell(monkeypatch, tmp_path, readme_text, model_output):
+    obj = object.__new__(agent.Ella)
+    obj.mode = "quote"
+    obj.prompt = "Generate a short uplifting quote of the week for a developer's GitHub profile README."
+    obj.repo = "isyuricunha/isyuricunha"
+    obj.default_branch = "main"
+    obj.commit_name = "Ella Mizuki"
+    obj.commit_email = "290269138+ella-mizuki[bot]@users.noreply.github.com"
+    obj.yuri_name = ""
+    obj.yuri_email = ""
+    obj.issue_number = -1
+    obj.comment_id = 0
+    obj.ai_base_url = "https://example.invalid"
+    obj.ai_model = "m"
+    obj.ai_api_key = "k"
+    obj.ai_small_model = "m"
+    obj.ai_small_base_url = "https://example.invalid"
+    obj.ai_small_api_key = "k"
+    (tmp_path / "README.md").write_text(readme_text)
+    monkeypatch.chdir(tmp_path)
+    calls = []
+
+    def fake_git(args, *, check=True):
+        calls.append(("git", args))
+        if args[:2] == ["ls-files", "--modified"]:
+            return "README.md"
+        return ""
+
+    def fake_ai_call(messages, max_tokens, tools=None, use_small=False):
+        calls.append(("ai_call", use_small))
+        return model_output, []
+
+    monkeypatch.setattr(agent, "git", fake_git)
+    monkeypatch.setattr(obj, "ai_call", fake_ai_call)
+    obj._calls = calls
+    return obj
+
+
+class TestHandleQuote:
+    def test_writes_quote_and_commits(self, monkeypatch, tmp_path):
+        readme = "hello\n\n**a sentence to brighten your day:**<br>\n    old quote\n\n"
+        obj = _make_quote_shell(monkeypatch, tmp_path, readme, "do the thing you fear")
+        obj._handle_quote()
+        new_readme = (tmp_path / "README.md").read_text()
+        assert "do the thing you fear" in new_readme
+        assert "old quote" not in new_readme
+        git_args = [a for _, args in obj._calls if _ == "git" for a in args]
+        assert "commit" in git_args
+        assert "push" in git_args
+
+    def test_no_commit_on_ai_failure(self, monkeypatch, tmp_path):
+        readme = "hello\n\n**a sentence to brighten your day:**<br>\n    old quote\n\n"
+        obj = _make_quote_shell(monkeypatch, tmp_path, readme, "irrelevant")
+
+        def boom(*a, **k):
+            raise RuntimeError("api down")
+        monkeypatch.setattr(obj, "ai_call", boom)
+        obj._handle_quote()
+        assert "old quote" in (tmp_path / "README.md").read_text()
+        assert not any(args[0] == "commit" for _, args in obj._calls if _ == "git")
+
+    def test_no_commit_on_empty_quote(self, monkeypatch, tmp_path):
+        readme = "hello\n\n**a sentence to brighten your day:**<br>\n    old quote\n\n"
+        obj = _make_quote_shell(monkeypatch, tmp_path, readme, "   \n\n")
+        obj._handle_quote()
+        assert "old quote" in (tmp_path / "README.md").read_text()
+        assert not any(args[0] == "commit" for _, args in obj._calls if _ == "git")
+
+
+class TestSanitizeQuote:
+    def test_strips_fences(self):
+        assert agent.Ella._sanitize_quote("```\ndo the thing\n```") == "do the thing"
+
+    def test_strips_fences_with_lang(self):
+        assert agent.Ella._sanitize_quote("```text\nkeep going\n```") == "keep going"
+
+    def test_strips_quotes(self):
+        assert agent.Ella._sanitize_quote('"do the thing"') == "do the thing"
+
+    def test_takes_first_line(self):
+        assert agent.Ella._sanitize_quote("first line\nsecond line") == "first line"
+
+    def test_caps_length(self):
+        long = "word " * 40
+        out = agent.Ella._sanitize_quote(long)
+        assert len(out) <= 140 and out.endswith("...")
+
+    def test_empty(self):
+        assert agent.Ella._sanitize_quote("   \n\n") == ""
+
+
+
