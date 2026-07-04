@@ -1164,7 +1164,6 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         ]
         content, _ = self.ai_call(messages, MAX_TOKENS[self.mode], use_small=self.mode != "review")
         response = content or ""
-        write_debug("ai-response-raw.txt", response)
         response = _strip_tool_call_json(response)
         write_debug("ai-response.txt", response)
         return response
@@ -1559,7 +1558,6 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         content_parts: list[str] = []
         active_tool_calls: dict[str, dict] = {}
         index_to_id: dict[int, str] = {}
-        raw_chunks: list[str] = []
 
         try:
             with urllib.request.urlopen(request, timeout=900) as response:
@@ -1580,8 +1578,6 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                             obj = json.loads(payload)
                         except json.JSONDecodeError:
                             continue
-                        if len(raw_chunks) < 5:
-                            raw_chunks.append(payload[:500])
                         try:
                             self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
                         except Exception as e:
@@ -1591,8 +1587,6 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                             obj = json.loads(stripped)
                         except json.JSONDecodeError:
                             continue
-                        if len(raw_chunks) < 5:
-                            raw_chunks.append(stripped[:500])
                         try:
                             self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
                         except Exception as e:
@@ -1605,8 +1599,6 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
 
         content = "".join(content_parts).strip()
         tool_calls = list(active_tool_calls.values())
-        if not content and raw_chunks:
-            write_debug("ai-empty-response-chunks.txt", "\n---\n".join(raw_chunks))
         return content, tool_calls
 
     @staticmethod
