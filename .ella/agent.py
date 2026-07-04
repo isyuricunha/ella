@@ -630,8 +630,8 @@ class Ella:
         self.allowed_files = self.get_pr_changed_files()
         self.create_progress_comment(
             self.generate_message(
-                f"I am starting to work on a PR. Write a short friendly message (1-2 sentences) saying I'm diving in and will report back. No headers.",
-                fallback="I started an investigation into this PR and will report back once I have findings."
+                "I'm diving into this PR. Write 1-2 friendly sentences saying I'll investigate and report back. No headers.",
+                fallback="I started investigating this PR and will report back soon."
             )
             + f"\n\n**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes"
         )
@@ -640,17 +640,15 @@ class Ella:
             commit_sha = self.commit_and_push_fix()
             if commit_sha:
                 msg = self.generate_message(
-                    f"I just fixed a PR (commit {commit_sha}). My summary of what I did: {self.final_summary}. "
-                    f"Write a short friendly wrap-up comment (2-3 sentences) referencing the commit hash {commit_sha}. No headers.",
+                    f"I just fixed a PR (commit {commit_sha}). Summary: {self.final_summary}. Write 2-3 friendly sentences referencing the commit. No headers.",
                     fallback=f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}"
                 )
                 self.comment(msg)
                 self.react("rocket")
             else:
                 msg = self.generate_message(
-                    f"All checks passed but no code changes were needed. My summary: {self.final_summary}. "
-                    f"Write a short friendly comment (2-3 sentences) explaining this. No headers.",
-                    fallback=f"All checks passed and no uncommitted changes remain.\n\n{self.final_summary}"
+                    f"All checks passed, no code changes needed. Summary: {self.final_summary}. Write 2-3 friendly sentences. No headers.",
+                    fallback=f"All checks passed and no changes were needed.\n\n{self.final_summary}"
                 )
                 self.comment(msg)
                 self.react("rocket")
@@ -670,8 +668,8 @@ class Ella:
         self.allowed_files = self.get_repo_files()
         self.create_progress_comment(
             self.generate_message(
-                f"I am starting to work on an issue. Write a short friendly message (1-2 sentences) saying I'm setting up a branch and diving in. No headers.",
-                fallback="I started working on this issue and will report back once I have findings."
+                "I'm setting up a branch for this issue. Write 1-2 friendly sentences saying I'll dive in and report back. No headers.",
+                fallback="I started working on this issue and will report back soon."
             )
             + f"\n\n**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes"
         )
@@ -681,16 +679,14 @@ class Ella:
             if commit_sha:
                 pr_url = self.create_solve_pr()
                 msg = self.generate_message(
-                    f"I just solved an issue and created a PR ({pr_url}, commit {commit_sha}). My summary: {self.final_summary}. "
-                    f"Write a short friendly wrap-up comment (2-3 sentences) referencing the PR link and commit. No headers.",
+                    f"I solved an issue and opened a PR ({pr_url}, commit {commit_sha}). Summary: {self.final_summary}. Write 2-3 friendly sentences referencing the PR and commit. No headers.",
                     fallback=f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`"
                 )
                 self.comment(msg)
                 self.react("rocket")
             else:
                 msg = self.generate_message(
-                    f"All checks passed but no code changes were needed. My summary: {self.final_summary}. "
-                    f"Write a short friendly comment (2-3 sentences) explaining this. No headers.",
+                    f"All checks passed, no code changes needed. Summary: {self.final_summary}. Write 2-3 friendly sentences. No headers.",
                     fallback=f"All checks passed but no changes were needed.\n\n{self.final_summary}"
                 )
                 self.comment(msg)
@@ -706,11 +702,10 @@ class Ella:
         """Generate a short quote via the small model, rewrite README, commit, push."""
         self.validate_ai_config()
         system = (
-            "You generate a single short quote of the week for a developer's "
-            "GitHub profile README. Output exactly one line, 5 to 15 words, "
-            "motivational or reflective, never political or divisive. No "
-            "quotation marks around it. No attribution. No markdown. No "
-            "first person. Just the sentence, all lowercase, no trailing period."
+            "Generate one short quote of the week for a developer's GitHub profile README. "
+            "Requirements: a single line, 5-15 words, motivational or reflective. "
+            "No politics, no attribution, no markdown, no first person. "
+            "All lowercase, no trailing period. Output just the sentence."
         )
         messages = [
             {"role": "system", "content": system},
@@ -854,15 +849,15 @@ class Ella:
                 break
 
         defaults = {
-            "ask": "Reply with one short sentence saying everything is working.",
-            "pr": "Analyze this PR briefly. Explain what changed, possible risks, and whether it looks safe to merge.",
-            "review": "Do a serious code review for this PR. Look for bugs, regressions, security risks, type issues, and missing tests.",
-            "plan": "Create a short, practical plan. Do not edit anything.",
-            "label": "Classify this issue or PR using common relevant labels.",
-            "fix": "Fix the problem described in the PR or comment. Make the smallest safe change possible.",
-            "continue": "Continue trying to fix this PR with the smallest safe change possible.",
+            "ask": "Reply with one short sentence confirming everything works.",
+            "pr": "Briefly analyze this PR: what changed, risks, and whether it's safe to merge.",
+            "review": "Review this PR for bugs, security, type issues, and missing tests.",
+            "plan": "Write a short, practical implementation plan. Don't edit any files.",
+            "label": "Classify this issue or PR with the most relevant labels.",
+            "fix": "Fix the issue described here. Keep changes minimal and safe.",
+            "continue": "Keep trying to fix this PR with minimal, safe changes.",
             "solve": "Solve this issue with the smallest safe change possible.",
-            "wiki": "Generate structured Markdown documentation for this repository.",
+            "wiki": "Generate structured Markdown wiki documentation for this repository.",
         }
 
         if self.mode in defaults and not self.prompt:
@@ -884,40 +879,40 @@ class Ella:
                 "Missing required secrets: " + ", ".join(missing))
 
     def help_text(self) -> str:
-        return """Available commands:
+        return """Hey! I'm Ella - here's what I can do:
 
 `/ella help`
-I list the commands I understand.
+I list my commands (you're looking at it).
 
 `/ella ask your question`
-I answer using the configured model.
+I answer based on the issue or PR context.
 
 `/ella pr request`
-I give a short PR analysis.
+I give you a quick PR summary - changes, risks, merge readiness.
 
 `/ella review request`
-I do a stricter PR code review. Also runs automatically when a PR is opened or synchronized, but I skip draft PRs.
+I do a thorough code review. Also runs automatically on PR open/synchronize (skips drafts).
 
 `/ella plan request`
-I write a plan without editing files.
+I write an implementation plan without touching any files.
 
 `/ella label`
-I apply common labels to the issue or PR.
+I apply the most relevant labels to the issue or PR.
 
 `/ella wiki`
-I read the entire codebase and generate a multi-page GitHub Wiki.
+I read the whole codebase and generate a multi-page GitHub Wiki.
 
 `/ella fix request`
-I try to fix the current PR, run checks, and commit.
+I fix the PR, run checks, and commit directly to the branch.
 
 `/ella continue request`
-I continue trying to fix the current PR with more attempts.
+I keep trying to fix the PR if the previous attempt hit a limit.
 
 `/ella solve request`
-On an issue, I create a branch, try to solve it, run checks, and open a PR.
+On an issue, I create a branch, fix it, run checks, and open a PR.
 
 **Quote of the week** (automated):
-Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate a fresh quote, rewrite the README quote line, and commit."""
+Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh quote, update the README, and commit."""
 
     def react(self, content: str) -> None:
         try:
@@ -974,11 +969,11 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
         or the output looks like leaked reasoning instead of a message.
         """
         system = (
-            "You are Ella Mizuki, a GitHub AI assistant. The repository owner is Yuri. "
-            "You are not Yuri - you are Ella, his AI assistant. "
-            "Respond with ONLY the message text. No reasoning, no analysis, no thinking process. "
-            "Write in English in a warm, natural tone using first-person ('I'). "
-            "Be concise (1-3 sentences). Do not use markdown headers or code fences."
+            "You are Ella Mizuki, a charismatic female AI assistant. The repository owner is Yuri. "
+            "You are not Yuri - you are Ella. "
+            "Respond with ONLY the message text. No reasoning, no analysis. "
+            "Write in English with a warm, charismatic tone using first-person ('I'). "
+            "Be concise (1-3 sentences). No markdown headers or code fences."
         )
         try:
             text, _ = self.ai_call(
@@ -1215,16 +1210,16 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
         return context
 
     def system_prompt_for_read_only(self) -> str:
-        base = "You are Ella Mizuki, a GitHub AI assistant. The repository owner is Yuri (the human developer who configured you). You are not Yuri - you are Ella, his AI assistant. Write in English in a warm, helpful, and natural tone. Always use the first-person perspective ('I')."
+        base = "You are Ella Mizuki, a charismatic female AI assistant. The repository owner is Yuri (the developer who set you up). You are not Yuri - you are Ella. Write in English with a warm, charismatic tone. Use first-person ('I')."
         if self.mode == "review":
-            return base + ' Perform a thorough code review. Focus on bugs, security risks, type issues, and suspicious code. You MUST return ONLY valid JSON in this exact format: { "summary": "General review summary in Markdown", "comments": [ { "path": "src/file.py", "line": 42, "body": "Comment text" } ] }. Only include comments for lines that actually exist in the diff. No Markdown fences around the JSON.'
+            return base + ' Do a thorough code review. Find bugs, security risks, type issues, and suspicious code. Return ONLY valid JSON: { "summary": "review summary in Markdown", "comments": [ { "path": "src/file.py", "line": 42, "body": "comment" } ] }. Only reference lines that exist in the diff. No markdown fences.'
         if self.mode == "plan":
-            return base + " Create a clear and practical implementation plan. Include likely files, steps, risks, and checks."
+            return base + " Write a clear, practical implementation plan. Include likely files, steps, risks, and checks."
         if self.mode == "label":
-            return base + " Classify the issue or PR with common GitHub labels. Return ONLY valid JSON in this format: { \"labels\": [\"bug\"], \"summary\": \"one short sentence explaining the choice\" }. No Markdown. No code fences. The summary must be a single brief sentence, not a full analysis."
+            return base + ' Classify this issue or PR with the most relevant labels. Return ONLY valid JSON: { "labels": ["bug"], "summary": "one short sentence explaining the choice" }. No markdown fences. The summary must be a single brief sentence.'
         if self.mode == "pr":
-            return base + " Provide a short, friendly, and helpful analysis of the PR context provided."
-        return base + " Be friendly, clear, and concise. Do not output JSON or tool-call syntax. Answer directly in plain text."
+            return base + " Give a short, friendly PR analysis: what changed, risks, and merge readiness."
+        return base + " Be friendly and concise. Answer in plain text. No JSON or tool-call syntax."
 
     def handle_label(self) -> None:
         response = self.handle_read_only()
@@ -1362,9 +1357,9 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
         failed_logs = scrub_secrets(failed_logs)
             
         if "dependabot" in author.lower():
-            self.prompt = f"Dependabot updated a dependency and it broke the CI. Read these logs, search the internet for the migration guide if needed, and fix the breaking changes.\n\nLogs:\n{failed_logs}"
+            self.prompt = f"Dependabot updated a dependency and broke CI. Check the logs, find the migration guide if needed, and fix the breaking changes.\n\nLogs:\n{failed_logs}"
         else:
-            self.prompt = f"The CI workflow failed on this PR. Please analyze the logs and fix the issue.\n\nLogs:\n{failed_logs}"
+            self.prompt = f"CI failed on this PR. Analyze the logs and fix the issue.\n\nLogs:\n{failed_logs}"
             
         self.checkout_pr_branch()
         self.load_repo_instructions()
@@ -1377,7 +1372,7 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
                 
         self.create_progress_comment(
             self.generate_message(
-                f"I detected a CI failure on a PR and I'm automatically trying to fix it. Write a short friendly message (1-2 sentences) saying I'm on it. No headers.",
+                "I detected a CI failure on a PR and I'm on it. Write 1-2 friendly sentences saying I'm investigating. No headers.",
                 fallback="I detected a CI failure and I'm automatically trying to fix it!"
             )
             + f"\n\n**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes"
@@ -1388,24 +1383,21 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
             commit_sha = self.commit_and_push_fix()
             if commit_sha:
                 msg = self.generate_message(
-                    f"I just auto-healed a CI pipeline (commit {commit_sha}). My summary: {self.final_summary}. "
-                    f"Write a short friendly wrap-up comment (2-3 sentences) referencing the commit. No headers.",
+                    f"I auto-healed the CI (commit {commit_sha}). Summary: {self.final_summary}. Write 2-3 friendly sentences referencing the commit. No headers.",
                     fallback=f"🚑 I successfully auto-healed the CI pipeline!\n\nCommit: `{commit_sha}`\n\n{self.final_summary}"
                 )
                 self.comment(msg)
             else:
                 msg = self.generate_message(
-                    f"All checks passed and no code changes were needed. My summary: {self.final_summary}. "
-                    f"Write a short friendly comment (2-3 sentences) explaining this. No headers.",
-                    fallback=f"🚑 All checks passed and no uncommitted changes remain.\n\n{self.final_summary}"
+                    f"All checks passed, no code changes needed. Summary: {self.final_summary}. Write 2-3 friendly sentences. No headers.",
+                    fallback=f"🚑 All checks passed and no changes were needed.\n\n{self.final_summary}"
                 )
                 self.comment(msg)
             self.react("rocket")
         else:
             msg = self.generate_message(
-                f"I tried to auto-heal the CI but couldn't get checks to pass. My summary: {self.final_summary}. "
-                f"Write a short friendly comment (2-3 sentences) explaining the failure. No headers.",
-                fallback=f"🚑 I tried to auto-heal the CI, but I couldn't get the checks to pass within the limits.\n\n{self.final_summary}"
+                f"I tried to auto-heal the CI but couldn't get checks to pass. Summary: {self.final_summary}. Write 2-3 friendly sentences explaining the failure. No headers.",
+                fallback=f"🚑 I tried to auto-heal the CI but couldn't pass all checks within the limits.\n\n{self.final_summary}"
             )
             self.comment(msg)
             self.react("confused")
@@ -1864,20 +1856,19 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
 
     def system_prompt_for_fix(self) -> str:
         if self.mode == "solve":
-            action = "You are solving a GitHub issue by editing a branch and opening a PR."
+            action = "You're solving a GitHub issue by editing a branch and opening a PR."
         else:
-            action = "You are fixing an existing PR."
+            action = "You're fixing an existing PR."
         return (
-            "You are Ella Mizuki, a GitHub AI assistant. The repository owner is Yuri (the human developer who configured you). You are not Yuri - you are Ella, his AI assistant. "
-            "Write in English in a warm, helpful tone. Always use the first-person perspective ('I'). "
-            f"{action} "
-            "Use the provided tools to inspect and modify the repository.\n\n"
-            "CRITICAL RULES:\n"
-            "1. NEVER echo or summarize tool outputs to the user.\n"
-            "2. If you need to do more work, call the next tool IMMEDIATELY.\n"
-            "3. If a tool fails (e.g. file not found, search text not matched), DO NOT blindly retry. Use the `think` tool to diagnose why it failed before trying again.\n"
-            "4. If you have finished all your work, you MUST call the `done` tool.\n"
-            "5. NEVER output conversational text without calling a tool."
+            "You are Ella Mizuki, a charismatic female AI assistant. The repository owner is Yuri (the developer who set you up). You are not Yuri - you are Ella. "
+            "Write in English with a warm, charismatic tone. Use first-person ('I'). "
+            f"{action} Use the provided tools to inspect and modify the repository.\n\n"
+            "RULES:\n"
+            "1. Never echo tool outputs.\n"
+            "2. Need more work? Call the next tool immediately.\n"
+            "3. Tool failed? Use `think` to diagnose before retrying.\n"
+            "4. Finished? Call the `done` tool.\n"
+            "5. Never output plain text without a tool call."
         )
 
     def build_fix_context(self, attempt: int) -> str:
@@ -1892,16 +1883,15 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
             getattr(self, "repo_instructions", ""),
             "",
             "Tool calling:",
-            "You have access to these tools: search_code, read_file, edit_file, run_tests, run_terminal_command, think, done.",
-            "ALWAYS use tool calls to do your work.",
+            "Tools: search_code, read_file, edit_file, run_tests, run_terminal_command, think, done.",
+            "Always use tool calls. No plain text responses.",
             "",
             "Rules:",
-            "- Write in English.",
-            "- Use first-person perspective ('I') and a friendly, helpful tone.",
-            "- Use the edit_file tool to edit files.",
-            "- Keep the smallest safe change possible.",
-            "- Do not edit secrets, env files, lockfiles, generated files, or ignored files.",
-            "- If previous feedback exists, fix that feedback only.",
+            "- English, first-person, friendly tone.",
+            "- edit_file for all file changes.",
+            "- Smallest safe change possible.",
+            "- No editing secrets, env files, lockfiles, or generated files.",
+            "- Fix only the feedback from previous attempts.",
             "",
             "Previous failure type and feedback:",
             self.feedback,
@@ -2316,20 +2306,17 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
             summary = summary_path.read_text(encoding="utf-8", errors="replace").strip()
 
         context_lines = [
-            "Create a Conventional Commit message for these changes.",
+            "Write a Conventional Commit message for these changes.",
             "",
             "Rules:",
-            "- Return ONLY valid JSON.",
-            "- No Markdown and no code fences.",
-            "- Subject must follow Conventional Commits, like docs: update README or fix(ui): handle empty state.",
-            "- Subject must be <= 72 characters.",
-            "- Body should be detailed but concise, using 2-6 bullet points.",
-            "- Use English.",
-            "- Use imperative mood.",
-            "- Do not mention Ella unless the changed files are specifically about Ella.",
+            "- Return ONLY valid JSON. No markdown, no code fences.",
+            "- Subject: Conventional Commits format (e.g., docs: update README, fix(ui): handle empty state).",
+            "- Subject max 72 characters, imperative mood.",
+            "- Body: 2-6 concise bullet points.",
+            "- English. Don't mention Ella unless the changes are about Ella.",
             "",
             f"Mode: {self.mode}",
-            f"Issue or PR number: {self.issue_number}",
+            f"Issue/PR number: {self.issue_number}",
             "",
             "User request:",
             self.prompt,
@@ -2343,17 +2330,17 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
             "Diff stat:",
             diff_stat,
             "",
-            "Diff, possibly truncated:",
+            "Diff (truncated):",
             diff,
             "",
-            "Return schema:",
+            "Schema:",
             '{ "subject": "type(scope): short summary", "body": "- Detail one\\n- Detail two" }',
         ]
 
         system_prompt = (
-            "You write high-quality git commit messages. "
+            "Write high-quality git commit messages. "
             "Return only valid JSON with subject and body. "
-            "Do not call tools. Do not include reasoning."
+            "No tools, no reasoning."
         )
 
         try:
@@ -2519,22 +2506,19 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
             labels_by_name = {}
 
         system_prompt = (
-            "You are Ella Mizuki, a GitHub AI assistant. The repository owner is Yuri (the human developer who configured you). You are not Yuri - you are Ella, his AI assistant. Write in English in a warm, helpful, and natural tone, using first-person perspective ('I').\n"
-            "CRITICAL: Never refer to yourself in the third person (e.g. do not say 'the Ella Mizuki AI agent', say 'I').\n\n"
-            "Review the provided list of other open issues to see if the new issue is a duplicate. Then, craft your response based on these two scenarios:\n\n"
-            "SCENARIO A (Not a duplicate):\n"
-            "Warmly greet the user, acknowledge their issue, and let them know that you've assigned Yuri to look into it soon. Do not mention other issues.\n"
-            "Include the phrase `ASSIGN: yes` on a new line at the end of your response so Yuri gets assigned.\n\n"
-            "SCENARIO B (Is a duplicate):\n"
-            "Warmly greet the user and politely explain that their issue is highly similar to an existing one (mention it by number, e.g., #123). "
-            "Explain that since the feature or bug is already being tracked there, you will close this current issue so they can follow the original one for updates. "
-            "DO NOT say that Yuri will look into it or that you've assigned him, because you are closing the issue. "
-            "Do NOT include `ASSIGN: yes` since the issue is being closed as a duplicate.\n"
-            "CRITICAL INSTRUCTION: You MUST include the exact phrase `DUPLICATE_OF: #123` on a new line at the very end of your response (replace 123 with the actual number).\n\n"
-            "LABELS ASSIGNMENT:\n"
-            "If it is NOT a duplicate, you should also assign the most relevant labels. Here are the available labels:\n"
+            "You are Ella Mizuki, a charismatic female AI assistant. The repository owner is Yuri (the developer who set you up). You are not Yuri - you are Ella. Write in English with a warm, charismatic tone. Use first-person ('I'). Never refer to yourself in third person.\n\n"
+            "Check if the new issue duplicates an existing open issue. Then respond based on the scenario:\n\n"
+            "NOT A DUPLICATE:\n"
+            "Greet the user warmly, acknowledge the issue, and say Yuri will look into it. Don't mention other issues.\n"
+            "Add `ASSIGN: yes` on a new line at the end so Yuri gets assigned.\n\n"
+            "DUPLICATE:\n"
+            "Greet the user, explain the issue is similar to an existing one (mention by number, e.g., #123). "
+            "Say you'll close this one so they can follow the original. Don't mention Yuri or assignment.\n"
+            "Add `DUPLICATE_OF: #123` on a new line at the end (replace 123 with the actual number). Don't include `ASSIGN: yes`.\n\n"
+            "LABELS (non-duplicates only):\n"
+            "Assign the most relevant labels from this list:\n"
             f"{labels_json}\n"
-            "If any labels apply, include the phrase `LABELS: label1, label2` on a new line at the end of your response."
+            "If any apply, add `LABELS: label1, label2` on a new line at the end."
         )
         
         if getattr(self, "repo_instructions", ""):
@@ -2638,16 +2622,16 @@ Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate
         context_str = "\n".join(files_content)[:MAX_CONTEXT_REPO_FILES_BYTES]
 
         system_prompt = (
-            f"You are Ella Mizuki, a GitHub AI assistant. The repository owner is Yuri (the human developer who configured you). You are not Yuri - you are Ella, his AI assistant. You are generating GitHub Wiki documentation for the '{self.repo}' repository. "
-            "Write in English in a clear, professional, and friendly tone. "
-            "Analyze the provided codebase and generate a comprehensive multi-page Wiki for the repository. "
-            "You MUST divide the documentation into logical separate pages (e.g., Home.md, Setup.md, Architecture.md, Network.md, etc.). "
-            "Include an overview of the project, setup instructions, architecture, and any other relevant details you can infer. "
-            f"When providing git clone instructions, strictly use 'https://github.com/{self.repo}.git' as the URL and '{self.repo.split('/')[-1]}' as the directory name. "
-            "CRITICAL: Do NOT hallucinate or invent origins for the project name (e.g., YuMusic means Yuri's Music, do not say it means 'You Music'). Stick strictly to facts found in the provided text. "
-            "You MUST format your response using exactly this syntax for each page:\n\n"
-            "---FILENAME: Home.md---\n# Home\nContent goes here...\n\n"
-            "---FILENAME: Setup.md---\n# Setup\nContent goes here..."
+            f"You are Ella Mizuki, a charismatic female AI assistant generating GitHub Wiki documentation for the '{self.repo}' repository. "
+            "Write in English with a clear, friendly tone. "
+            "Analyze the codebase and generate a comprehensive multi-page wiki. "
+            "Divide into logical pages (Home.md, Setup.md, Architecture.md, etc.). "
+            "Include project overview, setup instructions, architecture, and relevant details. "
+            f"Use 'https://github.com/{self.repo}.git' for clone URLs and '{self.repo.split('/')[-1]}' as the directory name. "
+            "Do NOT invent project name origins. Stick to facts in the provided code. "
+            "Format each page with this syntax:\n\n"
+            "---FILENAME: Home.md---\n# Home\nContent...\n\n"
+            "---FILENAME: Setup.md---\n# Setup\nContent..."
         )
 
         self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", False), ("Pushing to wiki", False)])
