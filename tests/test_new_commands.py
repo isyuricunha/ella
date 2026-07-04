@@ -273,7 +273,7 @@ class TestHandleMilestone:
             ]
             agent.Ella._handle_milestone(obj)
             second_call_args = mock_gh.call_args_list[1][0][0]
-            assert "5" in second_call_args
+            assert "v2.0" in second_call_args
 
     def test_milestone_case_insensitive(self):
         obj = _make_shell()
@@ -286,8 +286,9 @@ class TestHandleMilestone:
                 "",
             ]
             agent.Ella._handle_milestone(obj)
+            # Should pass the actual title (lowercase from the API) to gh
             second_call_args = mock_gh.call_args_list[1][0][0]
-            assert "5" in second_call_args
+            assert "v2.0" in second_call_args
 
     def test_milestone_strips_quotes(self):
         obj = _make_shell()
@@ -301,7 +302,7 @@ class TestHandleMilestone:
             ]
             agent.Ella._handle_milestone(obj)
             second_call_args = mock_gh.call_args_list[1][0][0]
-            assert "5" in second_call_args
+            assert "v2.0" in second_call_args
 
     def test_milestone_not_found_lists_available(self):
         obj = _make_shell()

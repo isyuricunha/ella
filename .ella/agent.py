@@ -728,19 +728,19 @@ class Ella:
                 "--paginate",
             ])
             milestones = json.loads(milestones_json)
-            milestone_number = None
+            actual_title = None
             for m in milestones:
                 if m.get("title", "").lower() == title.lower():
-                    milestone_number = m["number"]
+                    actual_title = m["title"]
                     break
-            if milestone_number is None:
+            if actual_title is None:
                 self.comment(f"Milestone \"{title}\" not found. Available milestones: {', '.join(m.get('title', '') for m in milestones) or 'none'}.")
                 self.react("confused")
                 return
             gh([
                 "issue", "edit", str(self.issue_number),
                 "--repo", self.repo,
-                "--milestone", str(milestone_number),
+                "--milestone", actual_title,
             ])
         except Exception as exc:
             print(f"Failed to set milestone on #{self.issue_number}: {exc}")
