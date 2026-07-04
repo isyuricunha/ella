@@ -345,7 +345,7 @@ def load_labels() -> list[dict[str, str]]:
             labels.append(
                 {
                     "name": name,
-                    "color": str(item.get("color")).strip().lstrip("#")[:6] or "ededed",
+                    "color": str(item.get("color") or "").strip().lstrip("#")[:6] or "ededed",
                     "description": str(item.get("description", "")).strip()[:100],
                 }
             )
