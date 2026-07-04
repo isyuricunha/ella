@@ -110,10 +110,10 @@ MAX_CONTEXT_REPO_FILES_BYTES = env_int(
     "ELLA_MAX_CONTEXT_REPO_FILES_BYTES", 200_000)
 
 MAX_TOKENS = {
-    "ask": env_int("ELLA_MAX_TOKENS_ASK", 2048),
-    "pr": env_int("ELLA_MAX_TOKENS_PR", 4096),
-    "review": env_int("ELLA_MAX_TOKENS_REVIEW", 4096),
-    "plan": env_int("ELLA_MAX_TOKENS_PLAN", 4096),
+    "ask": env_int("ELLA_MAX_TOKENS_ASK", 4096),
+    "pr": env_int("ELLA_MAX_TOKENS_PR", 16384),
+    "review": env_int("ELLA_MAX_TOKENS_REVIEW", 16384),
+    "plan": env_int("ELLA_MAX_TOKENS_PLAN", 16384),
     "label": env_int("ELLA_MAX_TOKENS_LABEL", 1200),
     "fix": env_int("ELLA_MAX_TOKENS_FIX", 16384),
     "continue": env_int("ELLA_MAX_TOKENS_CONTINUE", 16384),
