@@ -364,7 +364,7 @@ def parse_jsonish(text: str) -> dict:
         return json.loads(raw)
     except json.JSONDecodeError:
         start = raw.find("{")
-        end = raw.find("}")
+        end = raw.rfind("}")
         if start == -1 or end == -1 or end <= start:
             raise
         return json.loads(raw[start: end + 1])
