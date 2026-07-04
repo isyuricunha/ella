@@ -68,8 +68,9 @@ In your target repository, go to **Settings > Secrets and variables > Actions**,
 
 **Optional - Token Limits** (override defaults for specific modes):
 - `ELLA_MAX_TOKENS_ASK` (default 4096), `ELLA_MAX_TOKENS_PR` (16384), `ELLA_MAX_TOKENS_REVIEW` (16384), `ELLA_MAX_TOKENS_PLAN` (16384), `ELLA_MAX_TOKENS_LABEL` (4096), `ELLA_MAX_TOKENS_FIX` (16384), `ELLA_MAX_TOKENS_CONTINUE` (16384), `ELLA_MAX_TOKENS_SOLVE` (16384), `ELLA_MAX_TOKENS_HEAL` (16384), `ELLA_MAX_TOKENS_TRIAGE` (16384), `ELLA_MAX_TOKENS_QUOTE` (4096), `ELLA_MAX_TOKENS_WIKI` (16384).
-- `ELLA_MAX_ATTEMPTS`: Max loops for fixes (default 25 + 2 per allowed file, capped at 300).
+- `ELLA_MAX_ATTEMPTS`: Max loops for fixes (default 25 + 2 per allowed file, capped 300).
 - `ELLA_TIME_LIMIT_SECONDS`: Max execution time (default 3600s).
+- `ELLA_CMD_RETRIES`: Max retries for transient gh/git/AI failures (default 3, exponential backoff).
 - `ELLA_MAX_CONTEXT_PR_DIFF_BYTES` (500000), `ELLA_MAX_CONTEXT_FILE_BYTES` (120000), `ELLA_MAX_CONTEXT_REQUESTED_FILE_BYTES` (250000), `ELLA_MAX_CONTEXT_REPO_FILES_BYTES` (200000).
 
 **Note on reasoning models**: If your LLM is a reasoning model (e.g., DeepSeek-R1, GLM with thinking), it spends tokens on internal reasoning before generating content. The defaults above are tuned for reasoning models. If you use a non-reasoning model, you can lower these limits to save costs.

@@ -32,6 +32,7 @@ Each small variable falls back independently, so I can set only `ELLA_AI_SMALL_M
 Optional secrets to fine-tune her limits:
 - `ELLA_MAX_ATTEMPTS`: Max loops for fixes (Default: 25 + 2 per allowed file, capped at 300).
 - `ELLA_TIME_LIMIT_SECONDS`: Max execution time (Default: 3600s).
+- `ELLA_CMD_RETRIES`: Max retries for transient gh/git/AI endpoint failures (Default: 3, exponential backoff).
 - `ELLA_MAX_TOKENS_*`: Limits for specific modes (`_ASK` 4096, `_PR` 16384, `_REVIEW` 16384, `_PLAN` 16384, `_LABEL` 4096, `_FIX` 16384, `_CONTINUE` 16384, `_SOLVE` 16384, `_HEAL` 16384, `_TRIAGE` 16384, `_QUOTE` 4096, `_WIKI` 16384). Defaults are tuned for reasoning models which spend tokens on internal thinking.
 - `ELLA_MAX_CONTEXT_PR_DIFF_BYTES`: Max bytes for PR diff context (Default: 500,000).
 - `ELLA_MAX_CONTEXT_FILE_BYTES`: Max bytes per file when reading (Default: 120,000).

@@ -211,21 +211,67 @@ def run_cmd(
     if check and result.returncode != 0:
         output = result.stdout if capture else ""
         error_msg = f"Command failed: {' '.join(args)}\n{output}"
-        
-        # Security patch: Redact known secrets from exception message to avoid leaking tokens
         error_msg = scrub_secrets(error_msg)
-
         raise CommandError(error_msg)
     return result
 
 
+# Module-level retry counters for AI calls (single-threaded usage).
+_ai_retry_counts: dict[str, int] = {}
+_AI_MAX_RETRIES = 3
+
+
+def _retry_ai(key: str = "ai_call") -> bool:
+    """Increment the retry counter for an AI call. Returns True if a retry is
+    allowed, False if the budget is exhausted."""
+    count = _ai_retry_counts.get(key, 0)
+    if count >= _AI_MAX_RETRIES:
+        return False
+    count += 1
+    _ai_retry_counts[key] = count
+    return True
+
+
+def _reset_ai_retry(key: str = "ai_call") -> None:
+    _ai_retry_counts.pop(key, None)
+
+
+def _retry_cmd(fn, args: list[str], *, check: bool, **kwargs):
+    """Run a subprocess command with retry on transient failures.
+
+    Retries on non-zero exit codes that suggest transient issues (rate limits,
+    network blips, temporary HTTP 5xx). Gives up immediately on genuine errors
+    like unfound branches or permission denied.
+    """
+    max_retries = int(os.environ.get("ELLA_CMD_RETRIES", "3"))
+    base_delay = 1.0
+    last_exc = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            return fn(args, check=check, **kwargs)
+        except CommandError as exc:
+            last_exc = exc
+            msg = str(exc).lower()
+            if any(k in msg for k in ("not found", "permission denied", "does not exist", "refusing", "fatal: not a")):
+                raise
+            if attempt < max_retries:
+                delay = base_delay * (2 ** (attempt - 1))
+                print(f"Transient command failure (attempt {attempt}/{max_retries}), retrying in {delay:.0f}s: {' '.join(args[:4])}")
+                time.sleep(delay)
+        except subprocess.TimeoutExpired:
+            raise
+    if last_exc:
+        raise last_exc
+    return fn(args, check=check, **kwargs)
+
+
 def gh(args: list[str], *, check: bool = True) -> str:
-    result = run_cmd(["gh", *args], check=check, capture=True, timeout=120)
+    result = _retry_cmd(run_cmd, ["gh", *args], check=check, capture=True, timeout=120)
     return result.stdout
 
 
 def git(args: list[str], *, check: bool = True) -> str:
-    result = run_cmd(["git", *args], check=check, capture=True, timeout=900)
+    result = _retry_cmd(run_cmd, ["git", *args], check=check, capture=True, timeout=900)
     return result.stdout
 
 
@@ -1570,6 +1616,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
 
         try:
             with urllib.request.urlopen(request, timeout=900) as response:
+                _reset_ai_retry("ai_call")
                 status = getattr(response, "status", 200)
                 print(f"HTTP status: {status}")
 
@@ -1602,8 +1649,21 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                             print(f"Skipping malformed chunk: {e}")
 
         except urllib.error.HTTPError as exc:
-            raise CommandError(scrub_secrets(f"AI endpoint failed with HTTP status {exc.code}."))
+            code = exc.code
+            if code in (429, 500, 502, 503, 504) and _retry_ai("ai_call"):
+                delay = 2 * (2 ** (_ai_retry_counts["ai_call"] - 1))
+                print(f"AI endpoint HTTP {code}, retrying in {delay:.0f}s")
+                time.sleep(delay)
+                return self.ai_call(messages, max_tokens, tools=tools, use_small=use_small)
+            _reset_ai_retry("ai_call")
+            raise CommandError(scrub_secrets(f"AI endpoint failed with HTTP status {code}."))
         except urllib.error.URLError as exc:
+            if _retry_ai("ai_call"):
+                delay = 2 * (2 ** (_ai_retry_counts["ai_call"] - 1))
+                print(f"AI endpoint URL error, retrying in {delay:.0f}s: {exc.reason}")
+                time.sleep(delay)
+                return self.ai_call(messages, max_tokens, tools=tools, use_small=use_small)
+            _reset_ai_retry("ai_call")
             raise CommandError(scrub_secrets(f"AI endpoint request failed: {exc.reason}"))
 
         content = "".join(content_parts).strip()
