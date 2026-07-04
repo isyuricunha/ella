@@ -1238,8 +1238,8 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         if self.mode == "label":
             return base + ' Classify this issue or PR with the most relevant labels. Return ONLY valid JSON: { "labels": ["bug"], "summary": "one short sentence explaining the choice" }. No markdown fences. The summary must be a single brief sentence.'
         if self.mode == "pr":
-            return base + " Give a short, friendly PR analysis: what changed, risks, and merge readiness."
-        return base + " Be friendly and concise. Answer in plain text. No JSON or tool-call syntax."
+            return base + " Give a short, friendly PR analysis: what changed, risks, and merge readiness. You have NO tools - answer only from the provided PR context."
+        return base + " Be friendly and concise. Answer in plain text. You have NO tools - answer only from the provided context. Don't say you'll search or look things up - just answer directly."
 
     def handle_label(self) -> None:
         response = self.handle_read_only()
