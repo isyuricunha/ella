@@ -735,9 +735,8 @@ class Ella:
                      if not l.strip().startswith(("python", "text", "markdown"))]
             s = "\n".join(lines).strip()
         # Trim each line and join multi-line quotes into a single line.
+        # When a quote spans multiple lines, join them into one line.
         parts = [l.strip() for l in s.splitlines() if l.strip()]
-        if len(parts) > 1:
-            print("Warning: quote spans multiple lines; joining them into one.")
         line = " ".join(parts)
         # Strip surrounding quotes, backticks, and markdown bold/italic markers.
         line = line.strip(' ""`*')
