@@ -440,8 +440,8 @@ class TestSanitizeQuote:
     def test_strips_quotes(self):
         assert agent.Ella._sanitize_quote('"do the thing"') == "do the thing"
 
-    def test_takes_first_line(self):
-        assert agent.Ella._sanitize_quote("first line\nsecond line") == "first line"
+    def test_joins_multi_line(self):
+        assert agent.Ella._sanitize_quote("first line\nsecond line") == "first line second line"
 
     def test_caps_length(self):
         long = "word " * 40
@@ -453,6 +453,18 @@ class TestSanitizeQuote:
 
     def test_lowercases_output(self):
         assert agent.Ella._sanitize_quote("Every Line Of Code Is A Step") == "every line of code is a step"
+
+    def test_strips_bold(self):
+        assert agent.Ella._sanitize_quote("**every bug is a hidden feature in disguise**") == "every bug is a hidden feature in disguise"
+
+    def test_strips_italic(self):
+        assert agent.Ella._sanitize_quote("*keep going*") == "keep going"
+
+    def test_strips_bold_with_quotes(self):
+        assert agent.Ella._sanitize_quote('"**every bug is a hidden feature in disguise**"') == "every bug is a hidden feature in disguise"
+
+    def test_trims_per_line_whitespace(self):
+        assert agent.Ella._sanitize_quote("  spaced  \n  out  ") == "spaced out"
 
 
 
