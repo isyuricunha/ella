@@ -1203,6 +1203,9 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 lines.append("\nConversation History (Comments):")
                 for c in comments:
                     author = c.get("author", {}).get("login", "unknown")
+                    is_bot = c.get("author", {}).get("is_bot", False) or "ella-mizuki" in author.lower()
+                    if is_bot:
+                        continue
                     lines.append(f"\n--- Comment by @{author} ---\n{c.get('body', '').strip()}\n-----------------------------")
 
         if self.issue_info:
@@ -1217,6 +1220,9 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 lines.append("\nConversation History (Comments):")
                 for c in comments:
                     author = c.get("author", {}).get("login", "unknown")
+                    is_bot = c.get("author", {}).get("is_bot", False) or "ella-mizuki" in author.lower()
+                    if is_bot:
+                        continue
                     lines.append(f"\n--- Comment by @{author} ---\n{c.get('body', '').strip()}\n-----------------------------")
 
         context = "\n".join(lines)
@@ -1939,6 +1945,9 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 lines.append("\nConversation History (Comments):")
                 for c in comments:
                     author = c.get("author", {}).get("login", "unknown")
+                    is_bot = c.get("author", {}).get("is_bot", False) or "ella-mizuki" in author.lower()
+                    if is_bot:
+                        continue
                     lines.append(f"\n--- Comment by @{author} ---\n{c.get('body', '').strip()}\n-----------------------------")
 
         if self.mode == "solve":
@@ -1977,6 +1986,9 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 lines.append("\nConversation History (Comments):")
                 for c in comments:
                     author = c.get("author", {}).get("login", "unknown")
+                    is_bot = c.get("author", {}).get("is_bot", False) or "ella-mizuki" in author.lower()
+                    if is_bot:
+                        continue
                     lines.append(f"\n--- Comment by @{author} ---\n{c.get('body', '').strip()}\n-----------------------------")
 
         context = "\n".join(lines)
