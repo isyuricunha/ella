@@ -249,16 +249,43 @@ def command_exists(cmd: str) -> bool:
 
 
 def _strip_tool_call_json(text: str) -> str:
-    """Remove raw tool-call JSON that some models emit in text mode.
+    """Remove raw tool-call syntax that some models emit in text mode.
 
-    When no tools are provided in the API request, certain models still
-    hallucinate tool-call syntax like {"tool": "read_file", ...} in the
-    text content. This strips those JSON objects so they don't get
-    posted as comments.
+    When no tools are provided in the API request, certain models
+    still hallucinate tool-call syntax in the text content. Handles
+    JSON-style and XML-style tag formats.
     """
     import re as _re
+
+    # 1. JSON-style: {"tool": "read_file", ...}
     cleaned = _re.sub(r'^\s*\{"tool"\s*:.*?\}\s*$', '', text, flags=_re.MULTILINE)
     cleaned = _re.sub(r'\n+\{"tool"\s*:.*?\}\s*$', '', cleaned, flags=_re.DOTALL)
+
+    # 2. XML-style tag hallucinations
+    xml_markers = [
+        r"<tool_call>",
+        r"</tool_call>",
+        r"<arg_key\b",
+        r"</arg_key>",
+        r"<arg_value\b",
+        r"</arg_value>",
+        r"<command\b",
+        r"</command>",
+        r"<description\b",
+        r"</description>",
+        r"</result>",
+        r"<maid\b",
+        r"</maid>",
+        r"</think>",
+    ]
+    pattern = '|'.join(xml_markers)
+    m = _re.search(pattern, cleaned)
+    if m:
+        cleaned = cleaned[:m.start()].rstrip()
+
+    # 3. Strip trailing shell/code fences from hallucinated output
+    cleaned = _re.sub(r'\n+```(?:shell|bash|sh)?\s*\n.*?\n```\s*$', '', cleaned, flags=_re.DOTALL)
+
     cleaned = cleaned.strip()
     if not cleaned:
         return "I could not generate a response. Please try rephrasing your request."
