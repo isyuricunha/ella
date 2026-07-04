@@ -747,7 +747,7 @@ class Ella:
             self.comment(f"Failed to set milestone. {scrub_secrets(str(exc))}")
             self.react("confused")
             return
-        self.comment(f"Added #{self.issue_number} to milestone \"{title}\".")
+        self.comment(f"Added #{self.issue_number} to milestone \"{actual_title}\".")
         self.react("+1")
 
     def _handle_read_only(self) -> None:
