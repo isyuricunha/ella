@@ -9,10 +9,12 @@ My personal AI agent integrated via GitHub Actions (`.github/workflows/ella-mizu
 - **Review**: Reviews code automatically on PR open/synchronize (skips drafts), or on demand via `/ella review`.
 - **Plans & Labels**: Writes implementation plans (`/ella plan`) and applies relevant labels (`/ella label`).
 - **Q&A**: Answers questions based on issue/PR context (`/ella ask`, `/ella pr`).
+- **Quote of the Week**: Generates an AI-written quote in a profile README via `workflow_dispatch` or `schedule` events.
 
 ## Documentation Index
-- [Commands](./commands.md): List of my `/ella` slash commands.
+- [Commands](./commands.md): List of my `/ella` slash commands and automated modes.
 - [Internals](./internals.md): My configuration, required secrets, and internal architecture.
+- [Setup](./setup.md): How to install Ella in your own repository.
 
 ## Quick Trigger
 Just tag her in a comment:

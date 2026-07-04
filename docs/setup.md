@@ -26,6 +26,9 @@ on:
   workflow_run:
     workflows: ["*"]
     types: [completed]
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 0 * * 0"  # Uncomment for weekly quote generation
 
 jobs:
   ella:
@@ -58,7 +61,7 @@ In your target repository, go to **Settings > Secrets and variables > Actions**,
 - `ELLA_APP_CLIENT_ID` & `ELLA_APP_PRIVATE_KEY`: GitHub App credentials.
 - `YURI_COMMIT_NAME` & `YURI_COMMIT_EMAIL`: Your Git author name and email for Co-authored-by trailers.
 
-**Optional - Small Model** (for triage, ask, pr, plan, label, wiki):
+**Optional - Small Model** (for triage, ask, pr, plan, label, wiki, quote):
 - `ELLA_AI_SMALL_MODEL`: Smaller model name (e.g., `gpt-4o-mini`). Defaults to `ELLA_AI_MODEL` if not set.
 - `ELLA_AI_SMALL_API_KEY`: API key for the small model. Defaults to `ELLA_AI_API_KEY`.
 - `ELLA_AI_SMALL_BASE_URL`: Base URL for the small model. Defaults to `ELLA_AI_BASE_URL`.

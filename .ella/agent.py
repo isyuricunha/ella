@@ -889,7 +889,7 @@ I continue trying to fix the current PR with more attempts.
 On an issue, I create a branch, try to solve it, run checks, and open a PR.
 
 **Quote of the week** (automated):
-Triggered by a scheduled workflow (`schedule` or `workflow_dispatch` event), not a comment. I generate a fresh quote, rewrite the README quote line, and commit."""
+Triggered by `workflow_dispatch` or `schedule` events, not a comment. I generate a fresh quote, rewrite the README quote line, and commit."""
 
     def react(self, content: str) -> None:
         try:

@@ -3,7 +3,7 @@
 Architecture details and configuration for my Ella agent.
 
 ## Execution Flow
-1. **Trigger**: Triggered by `issues: [opened]`, `issue_comment: [created]`, `pull_request_target: [opened, synchronize]`, `workflow_run: [completed]` (auto-heal on CI failures), or `schedule`/`workflow_dispatch` (quote of the week).
+1. **Trigger**: Triggered by `issues: [opened]`, `issue_comment: [created]`, `pull_request_target: [opened, synchronize]`, `workflow_run: [completed]` (auto-heal on CI failures), or `workflow_dispatch` (quote of the week). A `schedule` trigger is also available but commented out in `.github/workflows/ella-mizuki.yml` - uncomment it to enable weekly quote generation on this repo.
 2. **Auth**: Uses `actions/create-github-app-token@v3` for a temporary, highly-privileged token.
 3. **Dispatch**: `run()` resolves the mode from the event/comment, then looks up a handler in the `_dispatch` table (replaces the old if/return chain). Each handler is a `_handle_*` method.
 4. **Context**: Reads `GITHUB_EVENT_PATH` and uses `gh` CLI to fetch PR diffs, issues, and directories.
@@ -32,7 +32,7 @@ Each small variable falls back independently, so I can set only `ELLA_AI_SMALL_M
 Optional secrets to fine-tune her limits:
 - `ELLA_MAX_ATTEMPTS`: Max loops for fixes (Default: 25 + 2 per allowed file, capped at 300).
 - `ELLA_TIME_LIMIT_SECONDS`: Max execution time (Default: 3600s).
-- `ELLA_MAX_TOKENS_*`: Limits for specific modes (`_ASK`, `_PR`, `_REVIEW`, `_PLAN`, `_LABEL`, `_FIX`, `_CONTINUE`, `_SOLVE`, `_HEAL`, `_TRIAGE`).
+- `ELLA_MAX_TOKENS_*`: Limits for specific modes (`_ASK`, `_PR`, `_REVIEW`, `_PLAN`, `_LABEL`, `_FIX`, `_CONTINUE`, `_SOLVE`, `_HEAL`, `_TRIAGE`, `_QUOTE`).
 - `ELLA_MAX_CONTEXT_*_BYTES`: Limits raw diff/file data context size.
 
 ## Files
