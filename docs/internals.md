@@ -32,7 +32,7 @@ Each small variable falls back independently, so I can set only `ELLA_AI_SMALL_M
 Optional secrets to fine-tune her limits:
 - `ELLA_MAX_ATTEMPTS`: Max loops for fixes (Default: 25 + 2 per allowed file, capped at 300).
 - `ELLA_TIME_LIMIT_SECONDS`: Max execution time (Default: 3600s).
-- `ELLA_MAX_TOKENS_*`: Limits for specific modes (`_ASK`, `_PR`, `_REVIEW`, `_PLAN`, `_LABEL`, `_FIX`, `_CONTINUE`, `_SOLVE`, `_HEAL`, `_TRIAGE`, `_QUOTE`).
+- `ELLA_MAX_TOKENS_*`: Limits for specific modes (`_ASK`, `_PR`, `_REVIEW`, `_PLAN`, `_LABEL`, `_FIX`, `_CONTINUE`, `_SOLVE`, `_HEAL`, `_TRIAGE`, `_QUOTE`, `_WIKI`).
 - `ELLA_MAX_CONTEXT_PR_DIFF_BYTES`: Max bytes for PR diff context (Default: 500,000).
 - `ELLA_MAX_CONTEXT_FILE_BYTES`: Max bytes per file when reading (Default: 120,000).
 - `ELLA_MAX_CONTEXT_REQUESTED_FILE_BYTES`: Max bytes for a single file requested by the model (Default: 250,000).

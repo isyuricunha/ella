@@ -114,13 +114,14 @@ MAX_TOKENS = {
     "pr": env_int("ELLA_MAX_TOKENS_PR", 16384),
     "review": env_int("ELLA_MAX_TOKENS_REVIEW", 16384),
     "plan": env_int("ELLA_MAX_TOKENS_PLAN", 16384),
-    "label": env_int("ELLA_MAX_TOKENS_LABEL", 1200),
+    "label": env_int("ELLA_MAX_TOKENS_LABEL", 4096),
     "fix": env_int("ELLA_MAX_TOKENS_FIX", 16384),
     "continue": env_int("ELLA_MAX_TOKENS_CONTINUE", 16384),
     "solve": env_int("ELLA_MAX_TOKENS_SOLVE", 16384),
     "heal": env_int("ELLA_MAX_TOKENS_HEAL", 16384),
-    "triage": env_int("ELLA_MAX_TOKENS_TRIAGE", 8192),
-    "quote": env_int("ELLA_MAX_TOKENS_QUOTE", 1024),
+    "triage": env_int("ELLA_MAX_TOKENS_TRIAGE", 16384),
+    "quote": env_int("ELLA_MAX_TOKENS_QUOTE", 4096),
+    "wiki": env_int("ELLA_MAX_TOKENS_WIKI", 16384),
 }
 
 
@@ -1394,7 +1395,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 "I detected a CI failure on a PR and I'm on it. Write 1-2 friendly sentences saying I'm investigating. No headers.",
                 fallback="I detected a CI failure and I'm automatically trying to fix it!"
             )
-            + f"\n\n**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes"
+            + f"\n\n**Limits:** {self.compute_max_attempts()} turns | {TIME_LIMIT_SECONDS // 60} minutes"
         )
         
         success = self.fix_loop()
@@ -2567,7 +2568,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             print(f"AI call failed during triage: {exc}")
             self.update_progress("❌ I could not generate a triage response. The AI endpoint returned an error.")
             return
-        response = content_resp or ""
+        response = _strip_tool_call_json(content_resp or "")
         
         self.update_task_checklist("Issue Triage", [("Fetching issues", True), ("Generating response", True)])
         
@@ -2666,7 +2667,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context_str}
             ]
-            content_resp, _ = self.ai_call(messages, 8192, use_small=True)
+            content_resp, _ = self.ai_call(messages, MAX_TOKENS.get("wiki", 16384), use_small=True)
             wiki_content = content_resp or ""
             
             self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", False)])
