@@ -120,7 +120,7 @@ MAX_TOKENS = {
     "solve": env_int("ELLA_MAX_TOKENS_SOLVE", 16384),
     "heal": env_int("ELLA_MAX_TOKENS_HEAL", 16384),
     "triage": env_int("ELLA_MAX_TOKENS_TRIAGE", 8192),
-    "quote": env_int("ELLA_MAX_TOKENS_QUOTE", 120),
+    "quote": env_int("ELLA_MAX_TOKENS_QUOTE", 1024),
 }
 
 
