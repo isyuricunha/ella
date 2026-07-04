@@ -33,6 +33,13 @@ on:
 
 jobs:
   ella:
+    if: >
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name != 'Ella Mizuki' && github.event.workflow_run.name != 'Release') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'YOUR_USERNAME') ||
+      (github.event_name == 'issues' && github.event.action == 'opened') ||
+      (github.event_name == 'pull_request_target' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
       - name: Run Ella
@@ -72,6 +79,9 @@ In your target repository, go to **Settings > Secrets and variables > Actions**,
 - `ELLA_TIME_LIMIT_SECONDS`: Max execution time (default 3600s).
 - `ELLA_CMD_RETRIES`: Max retries for transient gh/git/AI failures (default 3, exponential backoff).
 - `ELLA_MAX_CONTEXT_PR_DIFF_BYTES` (500000), `ELLA_MAX_CONTEXT_FILE_BYTES` (120000), `ELLA_MAX_CONTEXT_REQUESTED_FILE_BYTES` (250000), `ELLA_MAX_CONTEXT_REPO_FILES_BYTES` (200000).
+
+> [!NOTE]
+> `ELLA_MAX_ATTEMPTS`, `ELLA_TIME_LIMIT_SECONDS`, and `ELLA_CMD_RETRIES` can be passed as action `with:` inputs (`ella_max_attempts`, `ella_time_limit_seconds`, `ella_cmd_retries`). Token and context limits (`ELLA_MAX_TOKENS_*`, `ELLA_MAX_CONTEXT_*`) are not action inputs - set them as `env:` on the calling workflow job and they will be inherited by the composite action's `run` step.
 
 **Note on reasoning models**: If your LLM is a reasoning model (e.g., DeepSeek-R1, GLM with thinking), it spends tokens on internal reasoning before generating content. The defaults above are tuned for reasoning models. If you use a non-reasoning model, you can lower these limits to save costs.
 

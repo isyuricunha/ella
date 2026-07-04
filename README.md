@@ -42,6 +42,9 @@ If you want to use Ella in your own projects, you can use her as a **GitHub Acti
 
 ```yaml
 name: Ella Mizuki
+# To enable weekly quote generation, add a schedule trigger to the on: block:
+#   schedule:
+#     - cron: "0 0 * * 0"
 on:
   issues:
     types: [opened]
@@ -52,19 +55,18 @@ on:
   workflow_run:
     workflows: ["*"]
     types: [completed]
+  workflow_dispatch:
 
 jobs:
   ella:
+    if: >
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name != 'Ella Mizuki' && github.event.workflow_run.name != 'Release') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'isyuricunha') ||
+      (github.event_name == 'issues' && github.event.action == 'opened') ||
+      (github.event_name == 'pull_request_target' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    env:
-      ELLA_AI_API_KEY: ${{ secrets.ELLA_AI_API_KEY }}
-      ELLA_AI_BASE_URL: ${{ secrets.ELLA_AI_BASE_URL }}
-      ELLA_AI_MODEL: ${{ secrets.ELLA_AI_MODEL }}
-      ELLA_AI_SMALL_MODEL: ${{ secrets.ELLA_AI_SMALL_MODEL }}
-      ELLA_AI_SMALL_API_KEY: ${{ secrets.ELLA_AI_SMALL_API_KEY }}
-      ELLA_AI_SMALL_BASE_URL: ${{ secrets.ELLA_AI_SMALL_BASE_URL }}
-      YURI_COMMIT_NAME: ${{ secrets.YURI_COMMIT_NAME }}
-      YURI_COMMIT_EMAIL: ${{ secrets.YURI_COMMIT_EMAIL }}
     steps:
       # REPLACE WITH YOUR GITHUB USERNAME AND FORK NAME
       - uses: YOUR_USERNAME/YOUR_FORK_NAME@main

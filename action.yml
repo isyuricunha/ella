@@ -34,6 +34,16 @@ inputs:
   yuri_commit_email:
     description: 'Git author email for commit metadata'
     required: false
+  ella_max_attempts:
+    description: 'Max loops for fix/solve/heal attempts (default 25 + 2 per allowed file, capped 300)'
+    required: false
+  ella_time_limit_seconds:
+    description: 'Max execution time in seconds (default 3600)'
+    required: false
+  ella_cmd_retries:
+    description: 'Max retries for transient gh/git/AI failures (default 3, exponential backoff)'
+    required: false
+
 runs:
   using: 'composite'
   steps:
@@ -66,5 +76,8 @@ runs:
         ELLA_AI_SMALL_BASE_URL: ${{ inputs.ai_small_base_url }}
         YURI_COMMIT_NAME: ${{ inputs.yuri_commit_name }}
         YURI_COMMIT_EMAIL: ${{ inputs.yuri_commit_email }}
+        ELLA_MAX_ATTEMPTS: ${{ inputs.ella_max_attempts }}
+        ELLA_TIME_LIMIT_SECONDS: ${{ inputs.ella_time_limit_seconds }}
+        ELLA_CMD_RETRIES: ${{ inputs.ella_cmd_retries }}
       run: |
         python3 ${{ github.action_path }}/.ella/agent.py
