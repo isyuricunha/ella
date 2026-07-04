@@ -454,5 +454,26 @@ class TestSanitizeQuote:
     def test_lowercases_output(self):
         assert agent.Ella._sanitize_quote("Every Line Of Code Is A Step") == "every line of code is a step"
 
+    def test_strips_bold(self):
+        assert agent.Ella._sanitize_quote("**bold text**") == "bold text"
+
+    def test_strips_italic(self):
+        assert agent.Ella._sanitize_quote("*italic text*") == "italic text"
+
+    def test_strips_bold_underscore(self):
+        assert agent.Ella._sanitize_quote("__bold text__") == "bold text"
+
+    def test_strips_italic_underscore(self):
+        assert agent.Ella._sanitize_quote("_italic text_") == "italic text"
+
+    def test_strips_bold_italic(self):
+        assert agent.Ella._sanitize_quote("***bold italic***") == "bold italic"
+
+    def test_preserves_underscore_in_words(self):
+        assert agent.Ella._sanitize_quote("text with_underscore") == "text with_underscore"
+
+    def test_strips_mixed_markdown(self):
+        assert agent.Ella._sanitize_quote("mixed *italic* and **bold** end") == "mixed italic and bold end"
+
 
 
