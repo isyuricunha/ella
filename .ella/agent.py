@@ -1557,6 +1557,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         )
 
         content_parts: list[str] = []
+        reasoning_parts: list[str] = []
         active_tool_calls: dict[str, dict] = {}
         index_to_id: dict[int, str] = {}
 
@@ -1580,7 +1581,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                         except json.JSONDecodeError:
                             continue
                         try:
-                            self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
+                            self.collect_ai_choices(obj, content_parts, reasoning_parts, active_tool_calls, index_to_id)
                         except Exception as e:
                             print(f"Skipping malformed SSE chunk: {e}")
                     else:
@@ -1589,7 +1590,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                         except json.JSONDecodeError:
                             continue
                         try:
-                            self.collect_ai_choices(obj, content_parts, active_tool_calls, index_to_id)
+                            self.collect_ai_choices(obj, content_parts, reasoning_parts, active_tool_calls, index_to_id)
                         except Exception as e:
                             print(f"Skipping malformed chunk: {e}")
 
@@ -1599,11 +1600,17 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             raise CommandError(scrub_secrets(f"AI endpoint request failed: {exc.reason}"))
 
         content = "".join(content_parts).strip()
+        reasoning = "".join(reasoning_parts).strip()
+        if reasoning:
+            write_debug("reasoning.txt", reasoning)
         tool_calls = list(active_tool_calls.values())
+
+        # If the model spent everything on reasoning and produced no content,
+        # that's still a valid state - callers check for empty content.
         return content, tool_calls
 
     @staticmethod
-    def collect_ai_choices(obj: dict, content_parts: list[str], active_tool_calls: dict, index_to_id: dict) -> None:
+    def collect_ai_choices(obj: dict, content_parts: list[str], reasoning_parts: list[str], active_tool_calls: dict, index_to_id: dict) -> None:
         if not isinstance(obj, dict):
             return
 
@@ -1617,6 +1624,14 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             content = delta.get("content") or message.get("content") or choice.get("text")
             if content:
                 content_parts.append(str(content))
+
+            # Collect reasoning separately - never published, only for debug.
+            # Support both 'reasoning' (vLLM/OpenRouter) and 'reasoning_content'
+            # (DeepSeek) field names in streaming delta and non-streaming message.
+            reasoning = (delta.get("reasoning") or delta.get("reasoning_content")
+                         or message.get("reasoning") or message.get("reasoning_content"))
+            if reasoning:
+                reasoning_parts.append(str(reasoning))
 
             tcs = delta.get("tool_calls") or message.get("tool_calls") or choice.get("tool_calls") or []
             for tc in tcs:
