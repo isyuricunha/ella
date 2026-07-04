@@ -65,7 +65,7 @@ In your target repository, go to **Settings > Secrets and variables > Actions**,
 
 ## 3. Personalize the Agent (Optional)
 
-Ella comes with a core persona already configured. However, if you want to provide repository-specific context or rules, you can create a file named `AGENTS.md` or `ELLA.md` in the root of your target repository. Ella will automatically detect these files and incorporate their instructions!
+Ella comes with a core persona already configured. However, if you want to provide repository-specific context or rules, you can create any of these files in the root of your target repository (checked in order): `AGENTS.md`, `ELLA.md`, `.github/copilot-instructions.md`, or `.github/ella-instructions.md`. Ella will automatically detect these files and incorporate their instructions!
 
 ```markdown
 # Repository Instructions

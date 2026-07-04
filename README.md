@@ -13,7 +13,7 @@
 
 ## ✨ Features
 
-- 🕵️‍♀️ **Issue Triage**: Automatically detects duplicate issues, assigns labels, and replies. Skips bot-created issues.
+- 🕵️‍♀️ **Issue Triage**: Automatically detects duplicate issues, assigns labels, assigns the repo owner (only for non-duplicates), and replies. Skips bot-created issues.
 - 💻 **Pull Request Reviews**: Analyzes diffs for bugs, security issues, and missing tests. Runs automatically when a PR is opened or synchronized (skips drafts), or on demand via `/ella review`.
 - 🔧 **Autonomous Fixes**: Fixes PRs by committing directly to the branch (`/ella fix`), or solves issues by creating a branch and opening a PR (`/ella solve`).
 - 📋 **Plans & Labels**: Writes implementation plans (`/ella plan`) and applies relevant labels (`/ella label`).
@@ -72,7 +72,7 @@ jobs:
           ella_app_private_key: ${{ secrets.ELLA_APP_PRIVATE_KEY }}
 ```
 
-4. **(Optional)** To customize her persona for your specific repository, create an `ELLA.md` or `AGENTS.md` file in the root of your repository with your extra instructions.
+4. **(Optional)** To customize her persona for your specific repository, create an `ELLA.md`, `AGENTS.md`, `.github/copilot-instructions.md`, or `.github/ella-instructions.md` file in the root of your repository with your extra instructions.
 
 ## 📖 Documentation
 

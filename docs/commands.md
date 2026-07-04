@@ -21,4 +21,6 @@ Slash commands I can use to trigger Ella. For security, she only responds to my 
 - `/ella solve <request>`: Creates a new branch, attempts a fix, and opens a new PR.
 
 ### Automated
-- **Triage**: Runs automatically when any issue is opened. Assigns it to me, checks for similar open issues, and leaves a welcome message. Skips issues created by bots.
+- **Triage**: Runs automatically when any issue is opened. Checks for duplicate issues, assigns labels, assigns the repo owner if the issue is not a duplicate, and leaves a welcome message. Skips issues created by bots.
+- **Auto-Review**: Runs automatically when a PR is opened or synchronized. Performs a thorough code review and posts inline comments. Skips draft PRs.
+- **Auto-Heal**: Runs automatically when a CI workflow fails. Analyzes the logs, attempts to fix the issue, and commits the fix to the PR branch.
