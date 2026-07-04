@@ -141,6 +141,20 @@ class TestIsIgnored:
         assert agent.is_ignored("pkg/vendor/lib.go", patterns) is True
         assert agent.is_ignored("src/main.go", patterns) is False
 
+    def test_sibling_directory_not_matched(self):
+        # A pattern ending with /** must only match files inside that
+        # directory, not sibling directories with a similar prefix.
+        patterns = ["node_modules/**"]
+        assert agent.is_ignored("node_modules/react/index.js", patterns) is True
+        assert agent.is_ignored("node_modules_backup/index.js", patterns) is False
+        assert agent.is_ignored("node_modules_old/data.json", patterns) is False
+
+    def test_double_star_prefix_sibling_not_matched(self):
+        # The **/ prefix variant should also respect the directory boundary.
+        patterns = ["**/node_modules/**"]
+        assert agent.is_ignored("src/node_modules/react/index.js", patterns) is True
+        assert agent.is_ignored("src/node_modules_old/data.json", patterns) is False
+
 
 # --- parse_jsonish ---
 

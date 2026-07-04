@@ -362,7 +362,7 @@ def is_ignored(path: str, patterns: list[str]) -> bool:
             continue
         if fnmatch.fnmatch(normalized, p):
             return True
-        if p.endswith("/**") and normalized.startswith(p[:-3]):
+        if p.endswith("/**") and normalized.startswith(p[:-2]):
             return True
         if "/" not in p and fnmatch.fnmatch(Path(normalized).name, p):
             return True
