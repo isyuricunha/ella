@@ -11,6 +11,8 @@ on:
     workflows: ["*"]
     types: [completed]
   workflow_dispatch:
+  # schedule:
+  #   - cron: "0 0 * * 0"  # Uncomment to enable weekly quote generation on this repo
 
 permissions:
   contents: write
@@ -25,7 +27,8 @@ jobs:
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'isyuricunha') ||
       (github.event_name == 'issues' && github.event.action == 'opened') ||
       (github.event_name == 'pull_request_target' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
-      github.event_name == 'workflow_dispatch'
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule'  # only active if schedule trigger is uncommented above
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
