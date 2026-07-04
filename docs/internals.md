@@ -20,7 +20,7 @@ My required repository secrets (`Settings > Secrets and variables > Actions`):
 - `YURI_COMMIT_NAME` / `YURI_COMMIT_EMAIL`: My Git author details for her commits.
 
 ### Small Model (Optional)
-A smaller, faster model for read-only and conversational tasks (triage, ask, pr, plan, label, wiki). Falls back to the main model if not set.
+A smaller, faster model for read-only and conversational tasks (triage, ask, pr, plan, label, wiki, quote). Falls back to the main model if not set.
 
 - `ELLA_AI_SMALL_MODEL`: Model name (e.g., `claude-haiku`, `gpt-4o-mini`). Defaults to `ELLA_AI_MODEL`.
 - `ELLA_AI_SMALL_API_KEY`: API key for the small model provider. Defaults to `ELLA_AI_API_KEY`.
@@ -69,6 +69,10 @@ Ella uses two models: a **large** model for tasks requiring deep reasoning, and 
 | Small | `ask`, `pr`, `plan`, `label`, `triage`, `wiki`, `quote` | `ELLA_AI_SMALL_*` (falls back to large) |
 
 Review stays on the large model because it requires deep code analysis (bugs, security, type issues).
+
+## Retry Logic
+- **gh()/git()**: Retry on transient failures (rate limits, network blips, 5xx) with exponential backoff (1s, 2s, 4s). Unrecoverable errors (not found, permission denied, refusing) skip retry. Configurable via `ELLA_CMD_RETRIES` (default 3).
+- **ai_call**: Retries on HTTP 429/500/502/503/504 and URLError with exponential backoff (2s, 4s, 8s). Up to 3 retries. `TimeoutExpired` is never retried.
 
 ## Architecture
 - **Dispatch table**: `run()` reads the event and comment to determine the mode, then looks up the handler in `_dispatch` (a `dict[str, callable]`). Each mode maps to a `_handle_*` method, replacing the old if/return chain. Shared validation lives in `_validate_and_load_context`.

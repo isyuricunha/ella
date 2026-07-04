@@ -653,3 +653,140 @@ class TestFixLoopMinimal:
 
         result = obj.fix_loop()
         assert result is True
+
+
+# --- parse_markdown_files (used by handle_wiki) ---
+
+
+class TestParseMarkdownFiles:
+    def test_parses_multiple_pages(self):
+        text = (
+            "---FILENAME: Home.md---\n# Home\nWelcome!\n\n"
+            "---FILENAME: Architecture.md---\n# Architecture\nDetails...\n"
+        )
+        pages = agent.parse_markdown_files(text)
+        assert "Home.md" in pages
+        assert "Architecture.md" in pages
+        assert "Welcome!" in pages["Home.md"]
+        assert "Details..." in pages["Architecture.md"]
+
+    def test_strips_whitespace_in_filename(self):
+        text = "---FILENAME:  Setup.md  ---\n# Setup\nContent"
+        pages = agent.parse_markdown_files(text)
+        assert "Setup.md" in pages
+
+    def test_fallback_to_home_when_no_delimiters(self):
+        text = "# Just markdown\n\nNo delimiters here."
+        pages = agent.parse_markdown_files(text)
+        assert "Home.md" in pages
+        assert "Just markdown" in pages["Home.md"]
+
+    def test_empty_text_returns_empty(self):
+        assert agent.parse_markdown_files("") == {}
+
+    def test_single_page(self):
+        text = "---FILENAME: Guide.md---\n# Guide\nStep 1\nStep 2"
+        pages = agent.parse_markdown_files(text)
+        assert list(pages.keys()) == ["Guide.md"]
+        assert "Step 1" in pages["Guide.md"]
+
+
+# --- handle_wiki (integration with mocked ai_call, gh, git) ---
+
+
+class TestHandleWiki:
+    def _make_wiki_shell(self, monkeypatch, ai_response):
+        obj = _make_ella_shell()
+        obj.mode = "wiki"
+        obj.prompt = "Generate structured Markdown wiki documentation."
+        obj.repo = "isyuricunha/ella"
+        obj.ignore_patterns = []
+        obj.repo_instructions = ""
+        obj.yuri_name = ""
+        obj.yuri_email = ""
+
+        git_calls = []
+        run_cmd_calls = []
+
+        def fake_git(args, *, check=True):
+            git_calls.append(args)
+            if args[:1] == ["ls-files"]:
+                return "README.md\nsrc/main.py\n"
+            return ""
+
+        def fake_run_cmd(args, **kwargs):
+            run_cmd_calls.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        def fake_ai_call(messages, max_tokens, tools=None, use_small=False):
+            return ai_response, []
+
+        monkeypatch.setattr(agent, "git", fake_git)
+        monkeypatch.setattr(agent, "run_cmd", fake_run_cmd)
+        monkeypatch.setattr(obj, "ai_call", fake_ai_call)
+        monkeypatch.setattr(obj, "create_progress_comment", lambda msg: None)
+        monkeypatch.setattr(obj, "update_task_checklist", lambda *a, **kw: None)
+        monkeypatch.setattr(obj, "update_progress", lambda msg: None)
+        monkeypatch.setattr(obj, "get_repo_files", lambda: ["README.md", "src/main.py"])
+        monkeypatch.setattr(obj, "load_repo_instructions", lambda: None)
+        monkeypatch.setenv("GH_TOKEN", "fake-token")
+
+        obj._git_calls = git_calls
+        obj._run_cmd_calls = run_cmd_calls
+        return obj
+
+    def test_generates_and_pushes_wiki(self, monkeypatch):
+        wiki_output = (
+            "---FILENAME: Home.md---\n# Home\nWelcome to Ella!\n\n"
+            "---FILENAME: Setup.md---\n# Setup\nInstall with pip.\n"
+        )
+        obj = self._make_wiki_shell(monkeypatch, wiki_output)
+
+        obj.handle_wiki()
+
+        # Should have called git push to wiki
+        push_calls = [c for c in obj._git_calls if "push" in c]
+        assert len(push_calls) >= 1
+        assert "master" in push_calls[-1]
+
+        # run_cmd should have git add, commit, config
+        commit_calls = [c for c in obj._run_cmd_calls if "commit" in c]
+        assert len(commit_calls) >= 1
+
+    def test_wiki_failure_on_empty_ai_response(self, monkeypatch):
+        obj = self._make_wiki_shell(monkeypatch, "")
+
+        obj.handle_wiki()
+
+        # Should NOT have pushed because AI returned empty (no pages parsed)
+        push_calls = [c for c in obj._git_calls if "push" in c]
+        assert len(push_calls) == 0
+
+    def test_wiki_missing_gh_token(self, monkeypatch):
+        wiki_output = "---FILENAME: Home.md---\n# Home\nContent"
+        obj = self._make_wiki_shell(monkeypatch, wiki_output)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+
+        obj.handle_wiki()
+
+        # Should NOT have pushed because no token
+        push_calls = [c for c in obj._git_calls if "push" in c]
+        assert len(push_calls) == 0
+
+    def test_wiki_sanitizes_filenames(self, monkeypatch):
+        wiki_output = "---FILENAME: ../../etc/passwd.md---\n# Hacked\nBad"
+        obj = self._make_wiki_shell(monkeypatch, wiki_output)
+
+        # Capture what filenames were written
+        written = []
+
+        def spy_write(self, content, encoding="utf-8"):
+            written.append(self.name)
+            return len(content)
+
+        monkeypatch.setattr(Path, "write_text", spy_write)
+        obj.handle_wiki()
+
+        # The filename should be sanitized (slashes replaced with underscores)
+        for name in written:
+            assert "../../../" not in name

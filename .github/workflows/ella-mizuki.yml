@@ -74,6 +74,7 @@ jobs:
 
           ELLA_MAX_ATTEMPTS: ${{ secrets.ELLA_MAX_ATTEMPTS }}
           ELLA_TIME_LIMIT_SECONDS: ${{ secrets.ELLA_TIME_LIMIT_SECONDS }}
+          ELLA_CMD_RETRIES: ${{ secrets.ELLA_CMD_RETRIES }}
 
           ELLA_MAX_TOKENS_ASK: ${{ secrets.ELLA_MAX_TOKENS_ASK }}
           ELLA_MAX_TOKENS_PR: ${{ secrets.ELLA_MAX_TOKENS_PR }}
