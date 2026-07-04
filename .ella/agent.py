@@ -898,7 +898,7 @@ class Ella:
 I list my commands (you're looking at it).
 
 `/ella ask your question`
-I answer based on the issue or PR context.
+I answer based on the issue/PR text in context (no code search).
 
 `/ella pr request`
 I give you a quick PR summary - changes, risks, merge readiness.
@@ -1238,7 +1238,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             return base + ' Classify this issue or PR with the most relevant labels. Return ONLY valid JSON: { "labels": ["bug"], "summary": "one short sentence explaining the choice" }. No markdown fences. The summary must be a single brief sentence.'
         if self.mode == "pr":
             return base + " Give a short, friendly PR analysis: what changed, risks, and merge readiness. You have NO tools - answer only from the provided PR context."
-        return base + " Be friendly and concise. Answer in plain text. You have NO tools - answer only from the provided context. Don't say you'll search or look things up - just answer directly."
+        return base + " Be friendly and concise. Answer in plain text. You have NO tools - answer ONLY from the issue/PR text in the context. If the answer isn't in the context, say you don't have enough information. Don't search, don't guess, don't hallucinate."
 
     def handle_label(self) -> None:
         response = self.handle_read_only()

@@ -4,7 +4,7 @@ Slash commands I can use to trigger Ella. For security, she only responds to my 
 
 ### General
 - `/ella help`: Lists available commands.
-- `/ella ask <question>`: Answers questions based on issue/PR context.
+- `/ella ask <question>`: Answers questions based on the issue/PR text in context. Does not search the codebase - if the answer isn't in the issue or PR description, says so.
 - `/ella wiki`: Reads the entire codebase and generates a comprehensive, multi-page GitHub Wiki.
 
 ### Pull Requests
