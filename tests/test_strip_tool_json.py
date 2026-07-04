@@ -1,5 +1,7 @@
 """Tests for _strip_tool_call_json helper."""
 
+import pytest
+
 
 def _load_agent_module():
     import importlib.util
@@ -58,7 +60,7 @@ class TestStripXmlToolCallTags:
 
     def test_strips_command_tag(self):
         lt, gt = chr(60), chr(62)
-        text = "I will fix it." + "\n" + lt + "command" + gt + "\nls -la" + "\n" + lt + "/command" + gt
+        text = "I will fix it." + "\n" + lt + "command" + gt + "\nls -la\n" + lt + "/command" + gt
         result = agent._strip_tool_call_json(text)
         assert result == "I will fix it."
 
@@ -118,3 +120,72 @@ class TestStripXmlToolCallTags:
         result = agent._strip_tool_call_json(text)
         assert "python" in result
         assert "x = 1" in result
+
+
+class TestStripSelfClosingXmlTags:
+    """Tests for self-closing XML tool-call tags like <read_file path="..." />."""
+
+    def test_strips_self_closing_read_file(self):
+        lt, gt = chr(60), chr(62)
+        text = "I will check the file." + "\n" + lt + 'read_file path=".ella/agent.py" /' + gt
+        result = agent._strip_tool_call_json(text)
+        assert result == "I will check the file."
+
+    def test_strips_self_closing_list_issues(self):
+        lt, gt = chr(60), chr(62)
+        text = "Let me check existing issues." + "\n" + lt + "list_issues /" + gt
+        result = agent._strip_tool_call_json(text)
+        assert result == "Let me check existing issues."
+
+    def test_strips_self_closing_search_code(self):
+        lt, gt = chr(60), chr(62)
+        text = "Here is my answer." + "\n" + lt + 'search_code query="def main" /' + gt
+        result = agent._strip_tool_call_json(text)
+        assert result == "Here is my answer."
+
+    def test_strips_multiple_self_closing_tags(self):
+        lt, gt = chr(60), chr(62)
+        text = (
+            "I will investigate."
+            + "\n" + lt + 'read_file path="main.py" /' + gt
+            + "\n" + lt + "list_issues /" + gt
+        )
+        result = agent._strip_tool_call_json(text)
+        assert result == "I will investigate."
+
+    def test_preserves_html_tags(self):
+        """HTML tags like <br/> and <img/> should NOT be stripped."""
+        text = "Line one<br/>\nLine two<img/>"
+        result = agent._strip_tool_call_json(text)
+        assert "br" in result
+        assert "img" in result
+
+    def test_preserves_snake_case_text(self):
+        """snake_case words that are NOT XML tags should be preserved."""
+        text = "The _sanitize_quote method needs fixing."
+        result = agent._strip_tool_call_json(text)
+        assert "_sanitize_quote" in result
+
+
+class TestStripOpenCloseXmlTags:
+    """Tests for open/close XML tool-call tags like <read_file>...</read_file>."""
+
+    def test_strips_read_file_open_close(self):
+        lt, gt = chr(60), chr(62)
+        text = "My response." + "\n" + lt + "read_file" + gt + "\npath=main.py\n" + lt + "/read_file" + gt
+        result = agent._strip_tool_call_json(text)
+        assert result == "My response."
+
+    def test_strips_search_code_open_close(self):
+        lt, gt = chr(60), chr(62)
+        text = "Analysis." + "\n" + lt + "search_code" + gt + "\nquery=foo\n" + lt + "/search_code" + gt
+        result = agent._strip_tool_call_json(text)
+        assert result == "Analysis."
+
+    def test_strips_open_tag_without_close(self):
+        """If model emits an open tag but no close tag, cut from that point."""
+        lt, gt = chr(60), chr(62)
+        text = "Real content here." + "\n" + lt + "read_file path=" + chr(34) + "x.py" + chr(34) + gt + "\nmore stuff"
+        result = agent._strip_tool_call_json(text)
+        assert result.startswith("Real content here")
+        assert "read_file" not in result

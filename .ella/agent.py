@@ -261,7 +261,7 @@ def _strip_tool_call_json(text: str) -> str:
     cleaned = _re.sub(r'^\s*\{"tool"\s*:.*?\}\s*$', '', text, flags=_re.MULTILINE)
     cleaned = _re.sub(r'\n+\{"tool"\s*:.*?\}\s*$', '', cleaned, flags=_re.DOTALL)
 
-    # 2. XML-style tag hallucinations
+    # 2. XML-style tag hallucinations (specific known tags)
     xml_markers = [
         r"<tool_call>",
         r"</tool_call>",
@@ -282,6 +282,19 @@ def _strip_tool_call_json(text: str) -> str:
     m = _re.search(pattern, cleaned)
     if m:
         cleaned = cleaned[:m.start()].rstrip()
+
+    # 2b. Generic self-closing XML tool-call tags: <read_file ... />, <list_issues />, etc.
+    # Only match snake_case tag names (tool names), not HTML tags like <br/> or <img/>
+    cleaned = _re.sub(r'\n\s*<[a-z]+(?:_[a-z]+)+\b[^>]*/>\s*', '', cleaned, flags=_re.IGNORECASE)
+    cleaned = _re.sub(r'\s*<[a-z]+(?:_[a-z]+)+\b[^>]*/>', '', cleaned, flags=_re.IGNORECASE)
+
+    # 2c. Generic XML open/close tool-call tags: <read_file>...</read_file>
+    # Match tool-name-style tags (snake_case) that the model hallucinates
+    cleaned = _re.sub(r'\n?\s*<([a-z]+(?:_[a-z]+)+)\b[^>]*>.*?</\1>\s*$', '', cleaned, flags=_re.DOTALL | _re.IGNORECASE)
+    # Also cut from any standalone snake_case open tag to end of text
+    m2 = _re.search(r'\n\s*<[a-z]+(?:_[a-z]+)+\b', cleaned, _re.IGNORECASE)
+    if m2:
+        cleaned = cleaned[:m2.start()].rstrip()
 
     # 3. Strip trailing shell/code fences from hallucinated output
     cleaned = _re.sub(r'\n+```(?:shell|bash|sh)?\s*\n.*?\n```\s*$', '', cleaned, flags=_re.DOTALL)
