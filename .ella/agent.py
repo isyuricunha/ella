@@ -1151,6 +1151,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         ]
         content, _ = self.ai_call(messages, MAX_TOKENS[self.mode], use_small=self.mode != "review")
         response = content or ""
+        write_debug("ai-response-raw.txt", response)
         response = _strip_tool_call_json(response)
         write_debug("ai-response.txt", response)
         return response
