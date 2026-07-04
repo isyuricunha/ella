@@ -683,7 +683,7 @@ class Ella:
             "GitHub profile README. Output exactly one line, 5 to 15 words, "
             "motivational or reflective, never political or divisive. No "
             "quotation marks around it. No attribution. No markdown. No "
-            "first person. Just the sentence, capitalized, no trailing period."
+            "first person. Just the sentence, all lowercase, no trailing period."
         )
         messages = [
             {"role": "system", "content": system},
@@ -714,6 +714,7 @@ class Ella:
             s = "\n".join(lines).strip()
         line = next((l.strip() for l in s.splitlines() if l.strip()), "")
         line = line.strip(' ""`')
+        line = line.lower()
         if len(line) > 140:
             line = line[:137].rstrip() + "..."
         return line

@@ -451,5 +451,8 @@ class TestSanitizeQuote:
     def test_empty(self):
         assert agent.Ella._sanitize_quote("   \n\n") == ""
 
+    def test_lowercases_output(self):
+        assert agent.Ella._sanitize_quote("Every Line Of Code Is A Step") == "every line of code is a step"
+
 
 
