@@ -457,14 +457,16 @@ class TestSanitizeQuote:
     def test_strips_bold(self):
         assert agent.Ella._sanitize_quote("**bold text**") == "bold text"
 
-    def test_strips_italic(self):
-        assert agent.Ella._sanitize_quote("*italic text*") == "italic text"
+    def test_preserves_single_asterisk_italic(self):
+        # Single * markers are not stripped, only paired ** markers.
+        assert agent.Ella._sanitize_quote("*italic text*") == "*italic text*"
 
     def test_strips_bold_underscore(self):
         assert agent.Ella._sanitize_quote("__bold text__") == "bold text"
 
-    def test_strips_italic_underscore(self):
-        assert agent.Ella._sanitize_quote("_italic text_") == "italic text"
+    def test_preserves_single_underscore_italic(self):
+        # Single _ markers are not stripped, only paired __ markers.
+        assert agent.Ella._sanitize_quote("_italic text_") == "_italic text_"
 
     def test_strips_bold_italic(self):
         assert agent.Ella._sanitize_quote("***bold italic***") == "bold italic"
@@ -473,7 +475,12 @@ class TestSanitizeQuote:
         assert agent.Ella._sanitize_quote("text with_underscore") == "text with_underscore"
 
     def test_strips_mixed_markdown(self):
-        assert agent.Ella._sanitize_quote("mixed *italic* and **bold** end") == "mixed italic and bold end"
+        # Only paired ** is stripped; single * is preserved.
+        assert agent.Ella._sanitize_quote("mixed *italic* and **bold** end") == "mixed *italic* and bold end"
+
+    def test_preserves_multiplication_operator(self):
+        # Single * used as a multiplication operator must be preserved.
+        assert agent.Ella._sanitize_quote("2 * 3 = 6") == "2 * 3 = 6"
 
 
 

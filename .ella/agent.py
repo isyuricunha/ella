@@ -753,10 +753,10 @@ class Ella:
             s = "\n".join(lines).strip()
         line = next((l.strip() for l in s.splitlines() if l.strip()), "")
         line = line.strip(' ""`')
-        line = re.sub(r'_{2}(.*?)_{2}', r'\1', line)
-        line = re.sub(r'\*{2}(.*?)\*{2}', r'\1', line)
-        line = re.sub(r'\*(.*?)\*', r'\1', line)
-        line = re.sub(r'\b_(\S.*?\S)_\b', r'\1', line)
+        # Strip only paired ** and __ markers (2 or more), not single * or _
+        # characters, so multiplication operators like "2 * 3 = 6" are preserved.
+        line = re.sub(r'_{2,}(.*?)_{2,}', r'\1', line)
+        line = re.sub(r'\*{2,}(.*?)\*{2,}', r'\1', line)
         line = line.lower()
         if len(line) > 140:
             line = line[:137].rstrip() + "..."
