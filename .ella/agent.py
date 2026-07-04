@@ -656,7 +656,7 @@ class Ella:
             commit_sha = self.commit_and_push_fix()
             if commit_sha:
                 msg = self.generate_message(
-                    f"I just fixed a PR (commit {commit_sha}). Summary: {self.final_summary}. Write 2-3 friendly sentences referencing the commit. No headers.",
+                    f"I just fixed a PR (commit {commit_sha}). I am Ella, the AI assistant who made the fix. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
                     fallback=f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}"
                 )
                 self.comment(msg)
@@ -696,7 +696,7 @@ class Ella:
             if commit_sha:
                 pr_url = self.create_solve_pr()
                 msg = self.generate_message(
-                    f"I solved an issue and opened a PR ({pr_url}, commit {commit_sha}). Summary: {self.final_summary}. Write 2-3 friendly sentences referencing the PR and commit. No headers.",
+                    f"I just solved this issue and opened PR {pr_url} (commit {commit_sha}). I am Ella, the AI assistant who made the fix - I'm announcing my own work here. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
                     fallback=f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`"
                 )
                 self.comment(msg)
@@ -1410,7 +1410,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             commit_sha = self.commit_and_push_fix()
             if commit_sha:
                 msg = self.generate_message(
-                    f"I auto-healed the CI (commit {commit_sha}). Summary: {self.final_summary}. Write 2-3 friendly sentences referencing the commit. No headers.",
+                    f"I auto-healed the CI (commit {commit_sha}). I am Ella, the AI assistant who did the fix. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
                     fallback=f"🚑 I successfully auto-healed the CI pipeline!\n\nCommit: `{commit_sha}`\n\n{self.final_summary}"
                 )
                 self.comment(msg)
@@ -2555,9 +2555,9 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
 
         system_prompt = (
             "You are Ella Mizuki, a charismatic female AI assistant. The repository owner is Yuri (the developer who set you up). You are not Yuri - you are Ella. Write in English with a warm, charismatic tone. Use first-person ('I'). Never refer to yourself in third person.\n\n"
-            "Check if the new issue duplicates an existing open issue. Then respond based on the scenario:\n\n"
+            "Check if the new issue duplicates an existing open issue. Then write a response that works as a standalone comment (the markers below are metadata that get stripped, so the visible text must be a complete message on its own).\n\n"
             "NOT A DUPLICATE:\n"
-            "Greet the user warmly, acknowledge the issue, and say Yuri will look into it. Don't mention other issues.\n"
+            "Write a warm greeting to the issue author, acknowledge what they reported, and say Yuri will look into it. Write 2-4 sentences - don't be overly brief. Don't mention other issues.\n"
             "Add `ASSIGN: yes` on a new line at the end so Yuri gets assigned.\n\n"
             "DUPLICATE:\n"
             "Greet the user, explain the issue is similar to an existing one (mention by number, e.g., #123). "
