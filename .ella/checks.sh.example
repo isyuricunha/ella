@@ -1,3 +1,4 @@
+# Optional custom checks script - replace auto-detected checks
 #!/usr/bin/env bash
 set -euo pipefail
 
