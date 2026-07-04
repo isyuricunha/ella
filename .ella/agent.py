@@ -878,7 +878,6 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
                 ],
                 max_tokens=max_tokens,
                 use_small=True,
-                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
             )
             if not text or not text.strip():
                 return fallback
@@ -1403,7 +1402,7 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
             }
         ]
 
-    def ai_call(self, messages: list[dict], max_tokens: int, tools: list[dict] | None = None, use_small: bool = False, extra_body: dict | None = None) -> tuple[str, list[dict]]:
+    def ai_call(self, messages: list[dict], max_tokens: int, tools: list[dict] | None = None, use_small: bool = False) -> tuple[str, list[dict]]:
         model = self.ai_small_model if use_small else self.ai_model
         base_url = self.ai_small_base_url if use_small else self.ai_base_url
         api_key = self.ai_small_api_key if use_small else self.ai_api_key
@@ -1418,8 +1417,6 @@ On an issue, I create a branch, try to solve it, run checks, and open a PR."""
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
-        if extra_body:
-            body.update(extra_body)
 
         data = json.dumps(body).encode("utf-8")
         url = base_url.rstrip("/") + "/chat/completions"
