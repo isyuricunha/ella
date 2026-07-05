@@ -580,7 +580,15 @@ class Ella:
 
         handler = self._dispatch.get(self.mode)
         if handler:
-            handler(self)
+            try:
+                handler(self)
+            except Exception as exc:
+                print(f"Unhandled error in handler {self.mode}: {exc}")
+                try:
+                    self.comment(f"❌ Something went wrong while I was working on this. Error: {scrub_secrets(str(exc))}")
+                    self.react("confused")
+                except Exception:
+                    pass
             return
 
         self.comment("I do not recognize that command. Use `/ella help`.")
