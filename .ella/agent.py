@@ -1302,7 +1302,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             "--json",
             "title,body,author,baseRefName,headRefName,headRefOid,headRepository,headRepositoryOwner,isCrossRepository,isDraft,state,url,comments",
         ])
-        self.pr_info = json.loads(raw)
+        try:
+            self.pr_info = json.loads(raw)
+        except json.JSONDecodeError:
+            raise RuntimeError(f"Failed to parse PR metadata as JSON: {scrub_secrets(raw[:200])}")
         write_debug("pr-info.json", json.dumps(self.pr_info, indent=2))
 
         diff = gh(["pr", "diff", str(self.issue_number), "--repo", self.repo])
@@ -1319,7 +1322,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             "--json",
             "title,body,author,url,number,state,comments",
         ])
-        self.issue_info = json.loads(raw)
+        try:
+            self.issue_info = json.loads(raw)
+        except json.JSONDecodeError:
+            raise RuntimeError(f"Failed to parse issue metadata as JSON: {scrub_secrets(raw[:200])}")
         write_debug("issue-info.json", json.dumps(self.issue_info, indent=2))
 
     def checkout_pr_branch(self) -> None:

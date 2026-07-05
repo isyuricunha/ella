@@ -1020,3 +1020,21 @@ class TestIsIgnoredEdgeCases:
         patterns = ["*.lock"]
         assert agent.is_ignored("pnpm-lock.yaml.lock", patterns) is True
         assert agent.is_ignored("src/main.py", patterns) is False
+
+
+class TestLoadMetadataJsonParse:
+    """load_pr_metadata and load_issue_metadata should raise RuntimeError
+    with a scrubbed message if gh returns non-JSON output, not crash with
+    a bare JSONDecodeError."""
+
+    def test_load_pr_metadata_malformed_json(self, monkeypatch):
+        ella = _make_ella_shell()
+        monkeypatch.setattr(agent, "gh", lambda *a, **k: "not valid JSON here")
+        with pytest.raises(RuntimeError, match="Failed to parse PR metadata"):
+            ella.load_pr_metadata()
+
+    def test_load_issue_metadata_malformed_json(self, monkeypatch):
+        ella = _make_ella_shell()
+        monkeypatch.setattr(agent, "gh", lambda *a, **k: "not valid JSON here")
+        with pytest.raises(RuntimeError, match="Failed to parse issue metadata"):
+            ella.load_issue_metadata()
