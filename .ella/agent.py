@@ -1574,11 +1574,11 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         if not run_id:
             print("No run_id found in workflow_run event")
             return
-            
+
         pull_requests = run_data.get("pull_requests", [])
         if pull_requests:
             self.issue_number = pull_requests[0].get("number")
-        else:
+        elif head_branch:
             try:
                 pr_list = json.loads(gh(["pr", "list", "--head", head_branch, "--repo", self.repo, "--json", "number"]))
                 if pr_list:
@@ -3010,7 +3010,19 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 if not filename.endswith(".md"):
                     filename += ".md"
                 safe_filename = filename.replace("/", "_").replace("\\", "_")
+                # Strip leading dots to prevent hidden files and path traversal
+                safe_filename = safe_filename.lstrip(".")
+                if not safe_filename or safe_filename == ".md":
+                    safe_filename = "untitled.md"
                 file_path = wiki_dir / safe_filename
+                # Ensure the resolved path is still inside the wiki directory
+                try:
+                    if not file_path.resolve().is_relative_to(wiki_dir.resolve()):
+                        print(f"Skipping unsafe filename: {filename}")
+                        continue
+                except ValueError:
+                    print(f"Skipping unsafe filename: {filename}")
+                    continue
                 file_path.write_text(str(content), encoding="utf-8")
 
             run_cmd(["git", "-C", str(wiki_dir), "config", "user.name", self.commit_name], capture=True)
