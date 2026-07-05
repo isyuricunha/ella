@@ -116,6 +116,18 @@ class TestReadFile:
             "read_file", json.dumps({"filepath": "../../../etc/passwd"}))
         assert "denied" in result.lower() or "invalid" in result.lower()
 
+    def test_rejects_directory_as_file(self, temp_repo):
+        """Reading a directory should return an error, not raise IsADirectoryError."""
+        ella = _make_ella_shell()
+        result = ella.execute_tool("read_file", json.dumps({"filepath": "src"}))
+        assert "directory" in result.lower()
+
+    def test_rejects_empty_filepath(self, temp_repo):
+        """Empty filepath resolves to repo root (a directory), not a file."""
+        ella = _make_ella_shell()
+        result = ella.execute_tool("read_file", json.dumps({"filepath": ""}))
+        assert "directory" in result.lower() or "error" in result.lower()
+
 
 class TestEditFile:
     def test_edits_existing_file(self, temp_repo):
@@ -167,6 +179,16 @@ class TestEditFile:
             "replace_text": "bar",
         }))
         assert "denied" in result.lower() or "invalid" in result.lower()
+
+    def test_rejects_directory_as_file(self, temp_repo):
+        """Editing a directory should return an error, not raise IsADirectoryError."""
+        ella = _make_ella_shell()
+        result = ella.execute_tool("edit_file", json.dumps({
+            "filepath": "src",
+            "search_text": "foo",
+            "replace_text": "bar",
+        }))
+        assert "directory" in result.lower()
 
 
 class TestRunTerminalCommand:

@@ -1962,6 +1962,8 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 return f"Error: invalid path {filepath}."
             if not path.exists():
                 return f"Error: file {filepath} not found."
+            if path.is_dir():
+                return f"Error: {filepath} is a directory, not a file."
             return f"--- {filepath} ---\n" + read_text_limited(path, MAX_CONTEXT_FILE_BYTES)
             
         elif name == "edit_file":
@@ -1978,6 +1980,8 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             
             if not path.exists():
                 return f"Error: file {filepath} not found."
+            if path.is_dir():
+                return f"Error: {filepath} is a directory, not a file."
             
             text = path.read_text(encoding="utf-8", errors="replace")
             if search_text not in text:
@@ -2128,7 +2132,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                     done_called = True
                 
                 self.update_checklist(attempt, "applying", "working", f"Running tool {name}")
-                result = self.execute_tool(name, args)
+                try:
+                    result = self.execute_tool(name, args)
+                except Exception as exc:
+                    result = f"Error: tool execution failed: {scrub_secrets(str(exc))}"
                 tool_call_messages.append({
                     "role": "tool",
                     "tool_call_id": tc.get("id"),
