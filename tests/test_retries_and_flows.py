@@ -341,6 +341,33 @@ class TestPostInlineReview:
         obj.post_inline_review("summary", [{"path": "a.py", "line": 1, "body": "x"}])
         assert gh_calls == []
 
+    def test_skips_non_numeric_line(self, monkeypatch):
+        """If the AI returns a non-numeric line value, that comment is skipped
+        instead of crashing with ValueError from int()."""
+        obj = _make_ella_shell()
+        obj.pr_info = {"headRefOid": "abc123"}
+
+        captured_payloads = []
+
+        def fake_gh(args, *, check=True):
+            if "api" in args and "reviews" in " ".join(args):
+                temp_path = args[args.index("--input") + 1]
+                captured_payloads.append(Path(temp_path).read_text())
+            return ""
+
+        monkeypatch.setattr(agent, "gh", fake_gh)
+        monkeypatch.setattr(obj, "comment", lambda body: None)
+
+        comments = [
+            {"path": "a.py", "line": "not_a_number", "body": "bad line"},
+            {"path": "b.py", "line": 10, "body": "good line"},
+        ]
+        obj.post_inline_review("summary", comments)
+
+        assert len(captured_payloads) == 1
+        assert "good line" in captured_payloads[0]
+        assert "bad line" not in captured_payloads[0]
+
     def test_strips_secrets_from_review_body(self, monkeypatch):
         obj = _make_ella_shell()
         obj.pr_info = {"headRefOid": "abc123"}

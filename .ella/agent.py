@@ -1530,9 +1530,13 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             line = c.get("line")
             body = c.get("body")
             if path and line and body:
+                try:
+                    line_num = int(line)
+                except (TypeError, ValueError):
+                    continue
                 payload["comments"].append({
                     "path": str(path),
-                    "line": int(line),
+                    "line": line_num,
                     "side": "RIGHT",
                     "body": scrub_secrets(str(body))
                 })
