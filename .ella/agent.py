@@ -939,8 +939,21 @@ class Ella:
         marker = "**a sentence to brighten your day:**<br>"
         new_block = f"{marker}\n    {quote}\n"
         if marker in readme:
-            before = readme.split(marker, 1)[0]
-            readme = before + new_block + "\n"
+            before, after = readme.split(marker, 1)
+            # Drop the old quote line(s) after the marker, keep the rest.
+            # Old format: "\n    old quote text\n\n## rest..."
+            after_lines = after.splitlines(keepends=True)
+            # Skip leading blank lines and indented (quote) lines.
+            i = 0
+            while i < len(after_lines):
+                line = after_lines[i]
+                stripped = line.strip()
+                # Stop at a non-blank, non-indented line (start of real content).
+                if stripped and not (line.startswith("    ") or line.startswith("\t")):
+                    break
+                i += 1
+            tail = "".join(after_lines[i:])
+            readme = before + new_block + "\n" + tail
         else:
             readme = readme.rstrip("\n") + "\n\n" + new_block + "\n"
         path.write_text(readme, encoding="utf-8")

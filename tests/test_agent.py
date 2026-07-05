@@ -480,6 +480,33 @@ class TestHandleQuote:
         assert not any(args[0] == "commit" for _, args in obj._calls if _ == "git")
 
 
+class TestRewriteReadmeQuote:
+    def test_preserves_content_after_quote(self, monkeypatch, tmp_path):
+        """When the quote marker is in the middle of the README, content after
+        it must be preserved, not deleted."""
+        readme = "# My Repo\n\n**a sentence to brighten your day:**<br>\n    old quote\n\n## Installation\n\npip install foo\n"
+        readme_path = tmp_path / "README.md"
+        readme_path.write_text(readme)
+        monkeypatch.chdir(tmp_path)
+        agent.Ella._rewrite_readme_quote("new quote")
+        result = readme_path.read_text()
+        assert "new quote" in result
+        assert "old quote" not in result
+        assert "## Installation" in result
+        assert "pip install foo" in result
+
+    def test_preserves_content_no_marker(self, monkeypatch, tmp_path):
+        """When the marker is not present, the quote is appended."""
+        readme = "# My Repo\n\nSome content.\n"
+        readme_path = tmp_path / "README.md"
+        readme_path.write_text(readme)
+        monkeypatch.chdir(tmp_path)
+        agent.Ella._rewrite_readme_quote("new quote")
+        result = readme_path.read_text()
+        assert "new quote" in result
+        assert "Some content." in result
+
+
 class TestSanitizeQuote:
     def test_strips_fences(self):
         assert agent.Ella._sanitize_quote("```\ndo the thing\n```") == "do the thing"
