@@ -560,7 +560,7 @@ class Ella:
                 raise RuntimeError("User login not found in comment event")
             if "[bot]" in user_login or user_login == "ella-mizuki[bot]":
                 print(f"Skipping: ignoring comment from bot {user_login}")
-                sys.exit(0)
+                return
 
             # Restrict usage to repository owner
             repo_owner = self.event.get("repository", {}).get("owner", {}).get("login", "")
@@ -568,7 +568,7 @@ class Ella:
                 raise RuntimeError("Repository owner not found in event")
             if user_login != repo_owner:
                 print(f"Skipping: ignoring comment from unauthorized user {user_login}. Only repo owner can use the bot.")
-                sys.exit(0)
+                return
 
         if self.comment_id:
             self.react("eyes")
