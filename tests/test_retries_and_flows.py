@@ -196,6 +196,94 @@ class TestRetryAi:
         agent._reset_ai_retry("b")
 
 
+# --- ai_call IncompleteRead handling ---
+
+
+class TestAiCallStreamInterruption:
+    def test_incomplete_read_retries(self, monkeypatch):
+        """When the HTTP stream is interrupted mid-flight (HTTP 200 but connection
+        drops), IncompleteRead should be caught and retried, not crash the agent."""
+        import http.client
+        ella = _make_ella_shell()
+        ella.ai_model = "m"
+        ella.ai_base_url = "https://example.invalid"
+        ella.ai_api_key = "k"
+
+        agent._reset_ai_retry("ai_call")
+        monkeypatch.setattr(agent.time, "sleep", lambda s: None)
+
+        call_count = [0]
+
+        def fake_urlopen(request, timeout=None):
+            call_count[0] += 1
+            if call_count[0] < 2:
+                raise http.client.IncompleteRead(b"partial")
+            # Second call: return a valid response
+            class FakeResponse:
+                status = 200
+                def __enter__(self):
+                    return self
+                def __exit__(self, *args):
+                    pass
+                def __iter__(self):
+                    yield b'data: {"choices":[{"delta":{"content":"ok"}}]}\n'
+                    yield b'data: [DONE]\n'
+            return FakeResponse()
+
+        monkeypatch.setattr(agent.urllib.request, "urlopen", fake_urlopen)
+        content, tool_calls = ella.ai_call([{"role": "user", "content": "hi"}], 100)
+        assert "ok" in content
+
+    def test_connection_error_retries(self, monkeypatch):
+        """ConnectionError during streaming should be retried."""
+        ella = _make_ella_shell()
+        ella.ai_model = "m"
+        ella.ai_base_url = "https://example.invalid"
+        ella.ai_api_key = "k"
+
+        agent._reset_ai_retry("ai_call")
+        monkeypatch.setattr(agent.time, "sleep", lambda s: None)
+
+        call_count = [0]
+
+        def fake_urlopen(request, timeout=None):
+            call_count[0] += 1
+            if call_count[0] < 2:
+                raise ConnectionError("connection reset by peer")
+            class FakeResponse:
+                status = 200
+                def __enter__(self):
+                    return self
+                def __exit__(self, *args):
+                    pass
+                def __iter__(self):
+                    yield b'data: {"choices":[{"delta":{"content":"ok"}}]}\n'
+                    yield b'data: [DONE]\n'
+            return FakeResponse()
+
+        monkeypatch.setattr(agent.urllib.request, "urlopen", fake_urlopen)
+        content, tool_calls = ella.ai_call([{"role": "user", "content": "hi"}], 100)
+        assert "ok" in content
+
+    def test_incomplete_read_exhausts_retries(self, monkeypatch):
+        """After 3 retries, IncompleteRead should raise CommandError, not crash."""
+        import http.client
+        ella = _make_ella_shell()
+        ella.ai_model = "m"
+        ella.ai_base_url = "https://example.invalid"
+        ella.ai_api_key = "k"
+
+        agent._reset_ai_retry("ai_call")
+        monkeypatch.setattr(agent.time, "sleep", lambda s: None)
+
+        def fake_urlopen(request, timeout=None):
+            raise http.client.IncompleteRead(b"partial")
+
+        monkeypatch.setattr(agent.urllib.request, "urlopen", fake_urlopen)
+        with pytest.raises(agent.CommandError, match="stream interrupted"):
+            ella.ai_call([{"role": "user", "content": "hi"}], 100)
+
+
 # --- post_inline_review ---
 
 

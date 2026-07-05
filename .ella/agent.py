@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import fnmatch
+import http.client
 import json
 import os
 import re
@@ -1819,6 +1820,14 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 return self.ai_call(messages, max_tokens, tools=tools, use_small=use_small)
             _reset_ai_retry("ai_call")
             raise CommandError(scrub_secrets(f"AI endpoint request failed: {exc.reason}"))
+        except (http.client.HTTPException, ConnectionError) as exc:
+            if _retry_ai("ai_call"):
+                delay = 2 * (2 ** (_ai_retry_counts["ai_call"] - 1))
+                print(f"AI stream interrupted, retrying in {delay:.0f}s: {exc}")
+                time.sleep(delay)
+                return self.ai_call(messages, max_tokens, tools=tools, use_small=use_small)
+            _reset_ai_retry("ai_call")
+            raise CommandError(scrub_secrets(f"AI stream interrupted: {exc}"))
 
         content = "".join(content_parts).strip()
         reasoning = "".join(reasoning_parts).strip()
