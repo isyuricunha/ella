@@ -1038,3 +1038,116 @@ class TestLoadMetadataJsonParse:
         monkeypatch.setattr(agent, "gh", lambda *a, **k: "not valid JSON here")
         with pytest.raises(RuntimeError, match="Failed to parse issue metadata"):
             ella.load_issue_metadata()
+
+
+# --- Utility function coverage gaps ---
+
+
+class TestCleanEnvForChecks:
+    def test_strips_ella_ai_secrets(self, monkeypatch):
+        monkeypatch.setenv("ELLA_AI_API_KEY", "secret123")
+        monkeypatch.setenv("ELLA_AI_BASE_URL", "https://ai.example.com")
+        env = agent.clean_env_for_checks()
+        assert "ELLA_AI_API_KEY" not in env
+        assert "ELLA_AI_BASE_URL" not in env
+
+    def test_strips_ella_app_secrets(self, monkeypatch):
+        monkeypatch.setenv("ELLA_APP_PRIVATE_KEY", "key123")
+        monkeypatch.setenv("ELLA_APP_CLIENT_ID", "client123")
+        env = agent.clean_env_for_checks()
+        assert "ELLA_APP_PRIVATE_KEY" not in env
+        assert "ELLA_APP_CLIENT_ID" not in env
+
+    def test_strips_yuri_secrets(self, monkeypatch):
+        monkeypatch.setenv("YURI_COMMIT_NAME", "Yuri")
+        monkeypatch.setenv("YURI_COMMIT_EMAIL", "yuri@example.com")
+        env = agent.clean_env_for_checks()
+        assert "YURI_COMMIT_NAME" not in env
+        assert "YURI_COMMIT_EMAIL" not in env
+
+    def test_strips_gh_token(self, monkeypatch):
+        monkeypatch.setenv("GH_TOKEN", "ghp_" + "a" * 36)
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_" + "b" * 36)
+        env = agent.clean_env_for_checks()
+        assert "GH_TOKEN" not in env
+        assert "GITHUB_TOKEN" not in env
+
+    def test_sets_ci_true(self, monkeypatch):
+        monkeypatch.delenv("CI", raising=False)
+        env = agent.clean_env_for_checks()
+        assert env["CI"] == "true"
+
+    def test_preserves_non_secret_env(self, monkeypatch):
+        monkeypatch.setenv("PATH", "/usr/bin")
+        monkeypatch.setenv("HOME", "/home/test")
+        env = agent.clean_env_for_checks()
+        assert env["PATH"] == "/usr/bin"
+        assert env["HOME"] == "/home/test"
+
+
+class TestReadTextLimited:
+    def test_reads_file_under_limit(self, tmp_path):
+        f = tmp_path / "small.txt"
+        f.write_text("hello world")
+        result = agent.read_text_limited(f, 100)
+        assert result == "hello world"
+
+    def test_truncates_at_byte_limit(self, tmp_path):
+        f = tmp_path / "big.txt"
+        f.write_bytes(b"a" * 500)
+        result = agent.read_text_limited(f, 100)
+        assert len(result) <= 120  # 100 bytes + truncation marker
+        assert result.startswith("a" * 90)
+        assert "[truncated]" in result
+
+    def test_nonexistent_file_returns_empty(self, tmp_path):
+        f = tmp_path / "nope.txt"
+        try:
+            result = agent.read_text_limited(f, 100)
+            assert result == ""
+        except (FileNotFoundError, OSError):
+            pass
+
+
+class TestTailText:
+    def test_returns_last_n_lines(self, tmp_path):
+        f = tmp_path / "log.txt"
+        f.write_text("line1\nline2\nline3\nline4\nline5")
+        result = agent.tail_text(f, lines=2)
+        assert "line4" in result
+        assert "line5" in result
+        assert "line1" not in result
+
+    def test_nonexistent_file_returns_empty(self, tmp_path):
+        f = tmp_path / "nope.txt"
+        assert agent.tail_text(f) == ""
+
+    def test_empty_file_returns_empty(self, tmp_path):
+        f = tmp_path / "empty.txt"
+        f.write_text("")
+        assert agent.tail_text(f) == ""
+
+    def test_default_100_lines(self, tmp_path):
+        f = tmp_path / "many.txt"
+        f.write_text("\n".join(f"line{i}" for i in range(150)))
+        result = agent.tail_text(f)
+        assert "line149" in result
+        assert "line0\n" not in result  # early lines excluded
+
+
+class TestLoadIgnorePatterns:
+    def test_returns_default_patterns(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(agent, "AGENT_DIR", tmp_path / "nope")
+        patterns = agent.load_ignore_patterns()
+        assert ".git/**" in patterns
+        assert "**/node_modules/**" in patterns
+
+    def test_merges_custom_patterns(self, monkeypatch, tmp_path):
+        ignore_file = tmp_path / "ignore"
+        ignore_file.write_text("*.secret\n# comment\nnode_modules\n")
+        monkeypatch.setattr(agent, "AGENT_DIR", tmp_path)
+        patterns = agent.load_ignore_patterns()
+        assert "*.secret" in patterns
+        assert "node_modules" in patterns
+        assert "# comment" not in patterns
+
