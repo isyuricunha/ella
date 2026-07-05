@@ -1805,7 +1805,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 "type": "function",
                 "function": {
                     "name": "run_terminal_command",
-                    "description": "Run a terminal command (linter, type checker, ls, git status, etc.) to inspect or validate the code state. Destructive commands (rm -rf, git push, git reset --hard, git checkout ., git clean, force push, dropping databases, mkfs, etc.) are blocked.",
+                    "description": "Run a terminal command (linter, type checker, ls, git status, etc.) to inspect or validate the code state. Destructive commands are blocked: rm -rf (and all variations), chmod 777, kill/pkill/killall, shutdown/reboot, curl|bash, wget|sh, sudo rm, dd of=/dev/, find -exec rm, truncate, fork bombs, and more.",
                     "parameters": {
                         "type": "object",
                         "properties": {
