@@ -284,6 +284,79 @@ class TestAiCallStreamInterruption:
             ella.ai_call([{"role": "user", "content": "hi"}], 100)
 
 
+class TestAiCallStreamError:
+    """Some AI providers return HTTP 200 with an error object in the SSE stream
+    (e.g. rate limits, model errors). These should be retried, not silently
+    swallowed as empty responses."""
+
+    def test_stream_error_retries(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.ai_model = "m"
+        ella.ai_base_url = "https://example.invalid"
+        ella.ai_api_key = "k"
+
+        agent._reset_ai_retry("ai_call")
+        monkeypatch.setattr(agent.time, "sleep", lambda s: None)
+
+        call_count = [0]
+
+        def fake_urlopen(request, timeout=None):
+            call_count[0] += 1
+            if call_count[0] < 2:
+                # First call: return error in stream
+                class ErrorResponse:
+                    status = 200
+                    def __enter__(self):
+                        return self
+                    def __exit__(self, *args):
+                        pass
+                    def __iter__(self):
+                        yield b'data: {"error": {"message": "rate limited", "type": "rate_limit_error"}}\n'
+                        yield b'data: [DONE]\n'
+                return ErrorResponse()
+            # Second call: success
+            class FakeResponse:
+                status = 200
+                def __enter__(self):
+                    return self
+                def __exit__(self, *args):
+                    pass
+                def __iter__(self):
+                    yield b'data: {"choices":[{"delta":{"content":"ok"}}]}\n'
+                    yield b'data: [DONE]\n'
+            return FakeResponse()
+
+        monkeypatch.setattr(agent.urllib.request, "urlopen", fake_urlopen)
+        content, tool_calls = ella.ai_call([{"role": "user", "content": "hi"}], 100)
+        assert "ok" in content
+        assert call_count[0] == 2
+
+    def test_stream_error_exhausts_retries(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.ai_model = "m"
+        ella.ai_base_url = "https://example.invalid"
+        ella.ai_api_key = "k"
+
+        agent._reset_ai_retry("ai_call")
+        monkeypatch.setattr(agent.time, "sleep", lambda s: None)
+
+        def fake_urlopen(request, timeout=None):
+            class ErrorResponse:
+                status = 200
+                def __enter__(self):
+                    return self
+                def __exit__(self, *args):
+                    pass
+                def __iter__(self):
+                    yield b'data: {"error": {"message": "model overloaded"}}\n'
+                    yield b'data: [DONE]\n'
+            return ErrorResponse()
+
+        monkeypatch.setattr(agent.urllib.request, "urlopen", fake_urlopen)
+        with pytest.raises(agent.CommandError, match="stream returned error"):
+            ella.ai_call([{"role": "user", "content": "hi"}], 100)
+
+
 # --- post_inline_review ---
 
 

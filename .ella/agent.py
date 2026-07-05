@@ -131,6 +131,11 @@ class CommandError(Exception):
     pass
 
 
+class AIStreamError(Exception):
+    """Raised when an AI provider sends an error object inside an SSE stream."""
+    pass
+
+
 def scrub_secrets(text: str) -> str:
     if not isinstance(text, str):
         return text
@@ -1788,7 +1793,6 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
 
         try:
             with urllib.request.urlopen(request, timeout=900) as response:
-                _reset_ai_retry("ai_call")
                 status = getattr(response, "status", 200)
                 print(f"HTTP status: {status}")
 
@@ -1808,6 +1812,8 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                             continue
                         try:
                             self.collect_ai_choices(obj, content_parts, reasoning_parts, active_tool_calls, index_to_id)
+                        except AIStreamError:
+                            raise
                         except Exception as e:
                             print(f"Skipping malformed SSE chunk: {e}")
                     else:
@@ -1817,6 +1823,8 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                             continue
                         try:
                             self.collect_ai_choices(obj, content_parts, reasoning_parts, active_tool_calls, index_to_id)
+                        except AIStreamError:
+                            raise
                         except Exception as e:
                             print(f"Skipping malformed chunk: {e}")
 
@@ -1845,6 +1853,17 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 return self.ai_call(messages, max_tokens, tools=tools, use_small=use_small)
             _reset_ai_retry("ai_call")
             raise CommandError(scrub_secrets(f"AI stream interrupted: {exc}"))
+        except AIStreamError as exc:
+            if _retry_ai("ai_call"):
+                delay = 2 * (2 ** (_ai_retry_counts["ai_call"] - 1))
+                print(f"AI stream returned error, retrying in {delay:.0f}s: {exc}")
+                time.sleep(delay)
+                return self.ai_call(messages, max_tokens, tools=tools, use_small=use_small)
+            _reset_ai_retry("ai_call")
+            raise CommandError(scrub_secrets(f"AI stream returned error: {exc}"))
+
+        # Stream consumed successfully - reset the retry counter.
+        _reset_ai_retry("ai_call")
 
         content = "".join(content_parts).strip()
         reasoning = "".join(reasoning_parts).strip()
@@ -1860,6 +1879,14 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
     def collect_ai_choices(obj: dict, content_parts: list[str], reasoning_parts: list[str], active_tool_calls: dict, index_to_id: dict) -> None:
         if not isinstance(obj, dict):
             return
+
+        # Detect error objects that some providers send in the SSE stream
+        # with HTTP 200 (e.g. rate limits, model errors). Surface them so
+        # ai_call can retry or report instead of silently returning empty.
+        if obj.get("error"):
+            err = obj["error"]
+            msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+            raise AIStreamError(scrub_secrets(msg))
 
         for choice in obj.get("choices") or []:
             if not isinstance(choice, dict):
