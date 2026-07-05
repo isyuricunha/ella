@@ -820,7 +820,13 @@ class Ella:
                 "For security reasons, I can only commit to branches inside this repository. If you are an external contributor, please ask a maintainer to pull your branch here first!")
             self.react("confused")
             return
-        self.checkout_pr_branch()
+        try:
+            self.checkout_pr_branch()
+        except Exception as exc:
+            print(f"Failed to checkout PR branch: {exc}")
+            self.comment(f"❌ I couldn't check out the PR branch: {scrub_secrets(str(exc))}")
+            self.react("confused")
+            return
         self.load_repo_instructions()
         self.allowed_files = self.get_pr_changed_files()
         self.max_attempts = self.compute_max_attempts()
@@ -865,7 +871,13 @@ class Ella:
                 self.comment(error)
                 self.react("confused")
             return
-        self.checkout_solve_branch()
+        try:
+            self.checkout_solve_branch()
+        except Exception as exc:
+            print(f"Failed to checkout solve branch: {exc}")
+            self.comment(f"❌ I couldn't create a working branch: {scrub_secrets(str(exc))}")
+            self.react("confused")
+            return
         self.load_repo_instructions()
         self.allowed_files = self.get_repo_files()
         self.max_attempts = self.compute_max_attempts()
@@ -1639,8 +1651,14 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             self.prompt = f"Dependabot updated a dependency and broke CI. Check the logs, find the migration guide if needed, and fix the breaking changes.\n\nLogs:\n{failed_logs}"
         else:
             self.prompt = f"CI failed on this PR. Analyze the logs and fix the issue.\n\nLogs:\n{failed_logs}"
-            
-        self.checkout_pr_branch()
+
+        try:
+            self.checkout_pr_branch()
+        except Exception as exc:
+            print(f"Failed to checkout PR branch for heal: {exc}")
+            self.comment(f"❌ I couldn't check out the PR branch to investigate: {scrub_secrets(str(exc))}")
+            self.react("confused")
+            return
         self.load_repo_instructions()
         self.allowed_files = self.get_pr_changed_files()
         
