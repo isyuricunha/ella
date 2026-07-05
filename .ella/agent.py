@@ -833,7 +833,13 @@ class Ella:
         )
         success = self.fix_loop()
         if success:
-            commit_sha = self.commit_and_push_fix()
+            try:
+                commit_sha = self.commit_and_push_fix()
+            except Exception as exc:
+                print(f"Failed to commit and push fix: {exc}")
+                self.comment(f"❌ I fixed the PR and passed all checks, but the push failed: {scrub_secrets(str(exc))}")
+                self.react("confused")
+                return
             if commit_sha:
                 msg = self.generate_message(
                     f"I just fixed a PR (commit {commit_sha}). I am Ella, the AI assistant who made the fix. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
@@ -872,9 +878,21 @@ class Ella:
         )
         success = self.fix_loop()
         if success:
-            commit_sha = self.commit_and_push_solve()
+            try:
+                commit_sha = self.commit_and_push_solve()
+            except Exception as exc:
+                print(f"Failed to commit and push solve: {exc}")
+                self.comment(f"❌ I solved the issue and passed all checks, but the push failed: {scrub_secrets(str(exc))}")
+                self.react("confused")
+                return
             if commit_sha:
-                pr_url = self.create_solve_pr()
+                try:
+                    pr_url = self.create_solve_pr()
+                except Exception as exc:
+                    print(f"Failed to create solve PR: {exc}")
+                    self.comment(f"❌ I solved the issue and pushed the commit, but creating the PR failed: {scrub_secrets(str(exc))}")
+                    self.react("confused")
+                    return
                 msg = self.generate_message(
                     f"I just solved this issue and opened PR {pr_url} (commit {commit_sha}). I am Ella, the AI assistant who made the fix - I'm announcing my own work here. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
                     fallback=f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`"
@@ -1641,7 +1659,13 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         
         success = self.fix_loop()
         if success:
-            commit_sha = self.commit_and_push_fix()
+            try:
+                commit_sha = self.commit_and_push_fix()
+            except Exception as exc:
+                print(f"Failed to commit and push heal fix: {exc}")
+                self.comment(f"❌ I fixed the CI and passed all checks, but the push failed: {scrub_secrets(str(exc))}")
+                self.react("confused")
+                return
             if commit_sha:
                 msg = self.generate_message(
                     f"I auto-healed the CI (commit {commit_sha}). I am Ella, the AI assistant who did the fix. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
