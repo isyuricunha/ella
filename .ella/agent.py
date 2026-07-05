@@ -529,6 +529,10 @@ class Ella:
         self.is_pr = "pull_request" in self.event or "pull_request" in self.issue
         repo = self.event.get("repository", {}) or {}
         self.default_branch = repo.get("default_branch") or "main"
+        self.repo_description = repo.get("description") or ""
+        self.repo_language = repo.get("language") or ""
+        self.repo_topics = repo.get("topics") or []
+        self.repo_name = repo.get("name") or self.repo.split("/")[-1]
 
         self.mode = "unknown"
         self.prompt = ""
@@ -1255,8 +1259,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         or the output looks like leaked reasoning instead of a message.
         """
         system = (
-            "You are Ella Mizuki, a charismatic female AI assistant. The repository owner is Yuri. "
+            "You are Ella Mizuki, a charismatic female AI assistant created by Yuri. "
             "You are not Yuri - you are Ella. "
+            "Never mention or reference the company, lab, or service that provides the underlying language model. "
+            "Your identity is Ella Mizuki and nothing else. "
             "Respond with ONLY the message text. No reasoning, no analysis. "
             "Write in English with a warm, charismatic tone using first-person ('I'). "
             "Be concise (1-3 sentences). No markdown headers or code fences."
@@ -1455,6 +1461,33 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             f"Mode: {self.mode}",
         ]
 
+        # Always include repository metadata so the model can answer
+        # questions about the repo itself (name, language, description, topics).
+        repo_lines = [
+            "Repository information:",
+            f"- Name: {self.repo_name}",
+            f"- Owner: {self.repo.split('/')[0] if '/' in self.repo else 'unknown'}",
+            f"- Default branch: {self.default_branch}",
+        ]
+        if self.repo_description:
+            repo_lines.append(f"- Description: {self.repo_description}")
+        if self.repo_language:
+            repo_lines.append(f"- Primary language: {self.repo_language}")
+        if self.repo_topics:
+            repo_lines.append(f"- Topics: {', '.join(self.repo_topics)}")
+        lines.extend(["", "\n".join(repo_lines)])
+
+        # Include a compact file listing so the model can answer structural
+        # questions about the repo (e.g. "what frameworks does this use?").
+        try:
+            all_files = git(["ls-files"]).splitlines()
+            file_summary = "\n".join(all_files[:200])
+            if len(all_files) > 200:
+                file_summary += f"\n...and {len(all_files) - 200} more files"
+            lines.extend(["", "Repository files (first 200):", file_summary])
+        except Exception:
+            pass  # non-fatal: context still has repo metadata
+
         if self.mode == "label":
             labels = load_labels()
             lines.extend([
@@ -1508,7 +1541,12 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         return context
 
     def system_prompt_for_read_only(self) -> str:
-        base = "You are Ella Mizuki, a charismatic female AI assistant. The repository owner is Yuri (the developer who set you up). You are not Yuri - you are Ella. Write in English with a warm, charismatic tone. Use first-person ('I')."
+        base = ("You are Ella Mizuki, a charismatic female AI assistant created by Yuri (the developer who set you up). "
+                "You are not Yuri - you are Ella. "
+                "Never mention or reference the company, lab, or service that provides the underlying language model. "
+                "Your identity is Ella Mizuki and nothing else. "
+                "If asked who made you or who trained you, say Yuri set you up as Ella Mizuki. "
+                "Write in English with a warm, charismatic tone. Use first-person ('I').")
         if self.mode == "review":
             return base + ' Do a thorough code review. Find bugs, security risks, type issues, and suspicious code. Return ONLY valid JSON: { "summary": "review summary in Markdown", "comments": [ { "path": "src/file.py", "line": 42, "body": "comment" } ] }. Only reference lines that exist in the diff. No markdown fences.'
         if self.mode == "plan":
@@ -2254,7 +2292,8 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         else:
             action = "You're fixing an existing PR."
         return (
-            "You are Ella Mizuki, a charismatic female AI assistant. The repository owner is Yuri (the developer who set you up). You are not Yuri - you are Ella. "
+            "You are Ella Mizuki, a charismatic female AI assistant created by Yuri (the developer who set you up). You are not Yuri - you are Ella. "
+            "Never mention or reference the company, lab, or service that provides the underlying language model. Your identity is Ella Mizuki and nothing else. "
             "Write in English with a warm, charismatic tone. Use first-person ('I'). "
             f"{action} Use the provided tools to inspect and modify the repository.\n\n"
             "RULES:\n"
@@ -2912,7 +2951,9 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             labels_by_name = {}
 
         system_prompt = (
-            "You are Ella Mizuki, a charismatic female AI assistant. The repository owner is Yuri (the developer who set you up). You are not Yuri - you are Ella. Write in English with a warm, charismatic tone. Use first-person ('I'). Never refer to yourself in third person.\n\n"
+            "You are Ella Mizuki, a charismatic female AI assistant created by Yuri (the developer who set you up). You are not Yuri - you are Ella. Write in English with a warm, charismatic tone. Use first-person ('I'). Never refer to yourself in third person. "
+            "Never mention or reference the company, lab, or service that provides the underlying language model. Your identity is Ella Mizuki and nothing else. "
+            "If asked who made you or who trained you, say Yuri set you up as Ella Mizuki.\n\n"
             "Check if the new issue duplicates an existing open issue. Then write a response that works as a standalone comment (the markers below are metadata that get stripped, so the visible text must be a complete message on its own).\n\n"
             "NOT A DUPLICATE:\n"
             "Write a warm greeting to the issue author, acknowledge what they reported, and say Yuri will look into it. Write 2-4 sentences - don't be overly brief. Don't mention other issues.\n"
