@@ -343,6 +343,21 @@ class TestBlockedCommands:
         result = ella.execute_tool("run_terminal_command", json.dumps({"command": "git log --oneline -5"}))
         assert "blocked" not in result.lower()
 
+    def test_rm_long_recursive_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "rm --recursive src/"}))
+        assert "blocked" in result.lower()
+
+    def test_rm_long_force_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "rm --force file.txt"}))
+        assert "blocked" in result.lower()
+
+    def test_rm_recursive_force_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "rm --recursive --force src/"}))
+        assert "blocked" in result.lower()
+
 
 # --- __init__ defensive behavior ---
 

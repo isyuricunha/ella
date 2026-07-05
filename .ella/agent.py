@@ -1980,6 +1980,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\b",
                 r"\brm\s+-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*\b",
                 r"\brm\s+-r\b", r"\brm\s+-f\b",
+                r"\brm\s+--recursive\b", r"\brm\s+--force\b",
                 r"\bgit\s+push\b", r"\bgit\s+reset\s+--hard\b",
                 r"\bgit\s+checkout\s+\.\s*$", r"\bgit\s+clean\s+-fd\b",
                 r"\bDROP\s+(?:TABLE|DATABASE)\b", r"\bTRUNCATE\b",
