@@ -293,6 +293,56 @@ class TestBlockedCommands:
         result = ella.execute_tool("run_terminal_command", json.dumps({"command": ""}))
         assert "required" in result.lower()
 
+    def test_rm_rfv_bypass_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "rm -rfv /"}))
+        assert "blocked" in result.lower()
+
+    def test_rm_rfd_bypass_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "rm -rfd /"}))
+        assert "blocked" in result.lower()
+
+    def test_rm_frv_bypass_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "rm -frv /"}))
+        assert "blocked" in result.lower()
+
+    def test_fork_bomb_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": ":(){ :|: & };:"}))
+        assert "blocked" in result.lower()
+
+    def test_find_delete_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "find . -delete"}))
+        assert "blocked" in result.lower()
+
+    def test_find_exec_rm_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "find . -exec rm {} ;"}))
+        assert "blocked" in result.lower()
+
+    def test_xargs_rm_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "xargs rm < files.txt"}))
+        assert "blocked" in result.lower()
+
+    def test_truncate_blocked(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "truncate -s 0 important.txt"}))
+        assert "blocked" in result.lower()
+
+    def test_rm_without_flags_allowed(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "rm file.txt"}))
+        assert "blocked" not in result.lower()
+
+    def test_git_log_allowed(self):
+        ella = _make_ella_shell()
+        result = ella.execute_tool("run_terminal_command", json.dumps({"command": "git log --oneline -5"}))
+        assert "blocked" not in result.lower()
+
 
 # --- __init__ defensive behavior ---
 

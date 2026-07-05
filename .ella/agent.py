@@ -1134,6 +1134,8 @@ I add this issue or PR to a GitHub milestone by name.
 Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh quote, update the README, and commit."""
 
     def react(self, content: str) -> None:
+        if not self.comment_id:
+            return
         try:
             gh([
                 "api",
@@ -1953,11 +1955,16 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 return "Error: command is required."
 
             blocked_patterns = [
-                r"\brm\s+-rf\b", r"\brm\s+-fr\b", r"\brm\s+-r\b",
+                r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\b",
+                r"\brm\s+-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*\b",
+                r"\brm\s+-r\b", r"\brm\s+-f\b",
                 r"\bgit\s+push\b", r"\bgit\s+reset\s+--hard\b",
                 r"\bgit\s+checkout\s+\.\s*$", r"\bgit\s+clean\s+-fd\b",
                 r"\bDROP\s+(?:TABLE|DATABASE)\b", r"\bTRUNCATE\b",
-                r"\bmkfs\b", r"\bdd\s+.*of=/dev/", r"\b:\(\)\s*\{",
+                r"\bmkfs\b", r"\bdd\s+.*of=/",
+                r":\s*\(\s*\)\s*\{", r"\bfind\s+.*-delete\b",
+                r"\bfind\s+.*-exec\s+rm\b", r"\bxargs\s+rm\b",
+                r"\btruncate\s+-s\b",
             ]
             for pattern in blocked_patterns:
                 if re.search(pattern, cmd, re.IGNORECASE):
