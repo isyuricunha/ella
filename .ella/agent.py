@@ -3023,6 +3023,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
 
         self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", False), ("Pushing to wiki", False)])
 
+        wiki_dir: Path | None = None
         try:
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -3088,13 +3089,14 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             run_cmd(["git", "-C", str(wiki_dir), "commit", "-m", msg], capture=True)
             _git_wiki(["-C", str(wiki_dir), "push", "origin", "master"])
 
-            shutil.rmtree(wiki_dir, ignore_errors=True)
-
             self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", True)], "✅ The Wiki documentation has been successfully generated and pushed! Check your repository's Wiki tab.")
 
         except Exception as e:
             self.update_task_checklist("Generating Wiki Documentation", [("Reading repository", True), ("Generating pages", True), ("Pushing to wiki", False)], f"❌ I encountered an error while generating or pushing the Wiki: {e}\n\nMake sure I have Wiki write permissions!")
             print(f"Wiki error: {e}")
+        finally:
+            if wiki_dir is not None and wiki_dir.exists():
+                shutil.rmtree(wiki_dir, ignore_errors=True)
 
 def main() -> int:
     try:
