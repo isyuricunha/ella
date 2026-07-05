@@ -124,6 +124,7 @@ MAX_TOKENS = {
     "triage": env_int("ELLA_MAX_TOKENS_TRIAGE", 16384),
     "quote": env_int("ELLA_MAX_TOKENS_QUOTE", 4096),
     "wiki": env_int("ELLA_MAX_TOKENS_WIKI", 16384),
+    "review_fix": env_int("ELLA_MAX_TOKENS_REVIEW_FIX", 16384),
 }
 
 
@@ -1389,7 +1390,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             {"role": "system", "content": system},
             {"role": "user", "content": context}
         ]
-        content, _ = self.ai_call(messages, MAX_TOKENS[self.mode], use_small=self.mode != "review")
+        content, _ = self.ai_call(messages, MAX_TOKENS.get(self.mode, 16384), use_small=self.mode != "review")
         response = content or ""
         response = _strip_tool_call_json(response)
         write_debug("ai-response.txt", response)
