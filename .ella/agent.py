@@ -2738,8 +2738,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         path = Path(tmp_path)
 
         run_cmd(["git", "add", "--", *changed], capture=True)
-        git(["commit", "--no-verify", "-F", str(path)])
-        os.unlink(path)
+        try:
+            git(["commit", "--no-verify", "-F", str(path)])
+        finally:
+            os.unlink(path)
 
         branch = self.pr_info["headRefName"] if self.pr_info else getattr(self, "solve_branch", "")
         if not branch:
@@ -2765,8 +2767,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         commit_message_path = self.write_commit_message_file(changed)
 
         run_cmd(["git", "add", "--", *changed], capture=True)
-        git(["commit", "--no-verify", "-F", str(commit_message_path)])
-        os.unlink(commit_message_path)
+        try:
+            git(["commit", "--no-verify", "-F", str(commit_message_path)])
+        finally:
+            os.unlink(commit_message_path)
 
         head_ref = self.pr_info["headRefName"]
         git(["push", "origin", f"HEAD:{head_ref}"])
@@ -2786,8 +2790,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         commit_message_path = self.write_commit_message_file(changed)
 
         run_cmd(["git", "add", "--", *changed], capture=True)
-        git(["commit", "--no-verify", "-F", str(commit_message_path)])
-        os.unlink(commit_message_path)
+        try:
+            git(["commit", "--no-verify", "-F", str(commit_message_path)])
+        finally:
+            os.unlink(commit_message_path)
         git(["push", "origin", f"HEAD:{self.solve_branch}"])
 
         return git(["rev-parse", "--short", "HEAD"]).strip()
