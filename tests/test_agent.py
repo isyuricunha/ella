@@ -134,6 +134,110 @@ class TestSafeRelPath:
         assert agent.safe_rel_path("   ") is False
 
 
+# --- comment quote_trigger ---
+
+
+class TestCommentQuoteTrigger:
+    def test_quote_trigger_prepends_user_comment(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 123
+        ella.comment_event = {
+            "id": 123,
+            "body": "/ella ask, hello!",
+            "user": {"login": "isyuricunha"},
+        }
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        agent.Ella.comment(ella, "Hi there!", quote_trigger=True)
+        assert len(calls) == 1
+        body_arg = str(calls[0])
+        assert "> @isyuricunha" in body_arg
+        assert "/ella ask, hello!" in body_arg
+        assert "Hi there!" in body_arg
+
+    def test_quote_trigger_skipped_when_no_comment_id(self, monkeypatch):
+        """When triggered by issue.opened (comment_id=0), no quote is added."""
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 0
+        ella.comment_event = {}
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        agent.Ella.comment(ella, "Hi!", quote_trigger=True)
+        body_arg = str(calls[0]) if calls else ""
+        assert "Hi!" in body_arg
+        assert ">" not in body_arg
+
+    def test_quote_trigger_skipped_when_no_body(self, monkeypatch):
+        """When trigger comment has empty body, no quote is added."""
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 999
+        ella.comment_event = {"id": 999, "body": "", "user": {"login": "user"}}
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        agent.Ella.comment(ella, "Reply", quote_trigger=True)
+        body_arg = str(calls[0]) if calls else ""
+        assert "Reply" in body_arg
+        assert "> @user" not in body_arg
+
+    def test_quote_trigger_false_by_default(self, monkeypatch):
+        """Without quote_trigger, no quote block is prepended."""
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 123
+        ella.comment_event = {
+            "id": 123,
+            "body": "should not appear",
+            "user": {"login": "user"},
+        }
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        agent.Ella.comment(ella, "Plain reply")
+        body_arg = str(calls[0]) if calls else ""
+        assert "Plain reply" in body_arg
+        assert "should not appear" not in body_arg
+
+    def test_quote_trigger_multiline_body(self, monkeypatch):
+        """Multi-line trigger body is quoted line by line."""
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 456
+        ella.comment_event = {
+            "id": 456,
+            "body": "line one\nline two\nline three",
+            "user": {"login": "user"},
+        }
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        agent.Ella.comment(ella, "Reply", quote_trigger=True)
+        body_arg = str(calls[0]) if calls else ""
+        assert "> @user" in body_arg
+        assert "> line one" in body_arg
+        assert "> line two" in body_arg
+        assert "> line three" in body_arg
+
+    def test_quote_trigger_skips_blank_lines(self, monkeypatch):
+        """Blank lines in trigger body are not quoted."""
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 789
+        ella.comment_event = {
+            "id": 789,
+            "body": "real text\n\n   \nmore text",
+            "user": {"login": "user"},
+        }
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        agent.Ella.comment(ella, "Reply", quote_trigger=True)
+        body_arg = str(calls[0]) if calls else ""
+        assert "> real text" in body_arg
+        assert "> more text" in body_arg
+        # No blank quote lines "> " (with nothing after)
+        assert "> \n" not in body_arg and ">\n" not in body_arg
+
+
 # --- is_ignored ---
 
 

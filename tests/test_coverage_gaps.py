@@ -460,7 +460,7 @@ class TestHandleReadOnlyReview:
         monkeypatch.setattr(obj, "_validate_and_load_context", lambda: None)
         monkeypatch.setattr(obj, "post_inline_review", fake_post_inline_review)
         monkeypatch.setattr(obj, "react", fake_react)
-        monkeypatch.setattr(obj, "comment", lambda msg: None)
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: None)
 
         obj._handle_read_only()
 
@@ -479,7 +479,7 @@ class TestHandleReadOnlyReview:
         monkeypatch.setattr(obj, "handle_read_only", lambda: "This is not JSON at all")
         commented = []
 
-        def fake_comment(msg):
+        def fake_comment(msg, **kw):
             commented.append(msg)
 
         def fake_react(emoji):
@@ -507,7 +507,7 @@ class TestHandleReadOnlyReview:
         monkeypatch.setattr(obj, "_validate_and_load_context", lambda: None)
         monkeypatch.setattr(obj, "post_inline_review", lambda s, c: posted.append((s, c)))
         monkeypatch.setattr(obj, "react", lambda e: None)
-        monkeypatch.setattr(obj, "comment", lambda msg: commented.append(msg))
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: commented.append(msg))
 
         obj._handle_read_only()
         # Empty summary/comments should fall through to simple comment
@@ -570,7 +570,7 @@ class TestHandleHealSetup:
         monkeypatch.setattr(obj, "generate_message", lambda prompt, fallback=None, **kw: fallback or "test")
         monkeypatch.setattr(obj, "fix_loop", lambda: True)
         monkeypatch.setattr(obj, "commit_and_push_fix", lambda: "abc123")
-        monkeypatch.setattr(obj, "comment", lambda msg: None)
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: None)
         monkeypatch.setattr(obj, "react", lambda e: None)
         monkeypatch.setattr(obj, "checkout_pr_branch", lambda: None)
 
@@ -616,7 +616,7 @@ class TestHandleHealSetup:
         monkeypatch.setattr(obj, "generate_message", lambda prompt, fallback=None, **kw: fallback or "test")
         monkeypatch.setattr(obj, "fix_loop", lambda: True)
         monkeypatch.setattr(obj, "commit_and_push_fix", lambda: "def456")
-        monkeypatch.setattr(obj, "comment", lambda msg: None)
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: None)
         monkeypatch.setattr(obj, "react", lambda e: None)
         monkeypatch.setattr(obj, "checkout_pr_branch", lambda: None)
 
@@ -651,7 +651,7 @@ class TestHandleHealSetup:
         monkeypatch.setattr(obj, "generate_message", lambda prompt, fallback=None, **kw: fallback or "test")
         monkeypatch.setattr(obj, "fix_loop", lambda: True)
         monkeypatch.setattr(obj, "commit_and_push_fix", lambda: "ghi789")
-        monkeypatch.setattr(obj, "comment", lambda msg: None)
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: None)
         monkeypatch.setattr(obj, "react", lambda e: None)
         monkeypatch.setattr(obj, "checkout_pr_branch", lambda: None)
 
@@ -709,7 +709,7 @@ class TestHandleSolveFlow:
         monkeypatch.setattr(obj, "create_solve_pr", lambda: "https://github.com/isyuricunha/ella/pull/99")
         commented = []
         reacted = []
-        monkeypatch.setattr(obj, "comment", lambda msg: commented.append(msg))
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: commented.append(msg))
         monkeypatch.setattr(obj, "react", lambda e: reacted.append(e))
 
         agent.TIME_LIMIT_SECONDS = 3600
@@ -735,7 +735,7 @@ class TestHandleSolveFlow:
         monkeypatch.setattr(obj, "fix_loop", lambda: False)
         commented = []
         reacted = []
-        monkeypatch.setattr(obj, "comment", lambda msg: commented.append(msg))
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: commented.append(msg))
         monkeypatch.setattr(obj, "react", lambda e: reacted.append(e))
 
         agent.TIME_LIMIT_SECONDS = 3600
@@ -763,7 +763,7 @@ class TestHandleSolveFlow:
         monkeypatch.setattr(obj, "create_solve_pr", lambda: "url")
         commented = []
         reacted = []
-        monkeypatch.setattr(obj, "comment", lambda msg: commented.append(msg))
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: commented.append(msg))
         monkeypatch.setattr(obj, "react", lambda e: reacted.append(e))
 
         agent.TIME_LIMIT_SECONDS = 3600
@@ -796,7 +796,7 @@ class TestHandleFixFlow:
         monkeypatch.setattr(obj, "commit_and_push_fix", lambda: "deadbeef")
         commented = []
         reacted = []
-        monkeypatch.setattr(obj, "comment", lambda msg: commented.append(msg))
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: commented.append(msg))
         monkeypatch.setattr(obj, "react", lambda e: reacted.append(e))
 
         agent.TIME_LIMIT_SECONDS = 3600
@@ -814,7 +814,7 @@ class TestHandleFixFlow:
         monkeypatch.setattr(obj, "_validate_and_load_context", lambda: None)
         commented = []
         reacted = []
-        monkeypatch.setattr(obj, "comment", lambda msg: commented.append(msg))
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: commented.append(msg))
         monkeypatch.setattr(obj, "react", lambda e: reacted.append(e))
 
         obj._handle_fix()
@@ -845,7 +845,7 @@ class TestHandleLabel:
         monkeypatch.setattr(agent, "gh", lambda args, check=True: gh_calls.append(args) or "")
         monkeypatch.setattr(obj, "react", lambda e: None)
         commented = []
-        monkeypatch.setattr(obj, "comment", lambda msg: commented.append(msg))
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: commented.append(msg))
 
         obj.handle_label()
 
@@ -864,7 +864,7 @@ class TestHandleLabel:
         monkeypatch.setattr(agent, "gh", lambda args, check=True: "")
         monkeypatch.setattr(obj, "react", lambda e: None)
         commented = []
-        monkeypatch.setattr(obj, "comment", lambda msg: commented.append(msg))
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: commented.append(msg))
 
         obj.handle_label()
         assert any("could not parse" in c.lower() or "json" in c.lower() for c in commented)
@@ -881,7 +881,7 @@ class TestHandleLabel:
         monkeypatch.setattr(agent, "gh", lambda args, check=True: "")
         monkeypatch.setattr(obj, "react", lambda e: None)
         commented = []
-        monkeypatch.setattr(obj, "comment", lambda msg: commented.append(msg))
+        monkeypatch.setattr(obj, "comment", lambda msg, **kw: commented.append(msg))
 
         obj.handle_label()
         assert any("could not find" in c.lower() or "valid" in c.lower() for c in commented)

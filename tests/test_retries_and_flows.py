@@ -372,7 +372,7 @@ class TestPostInlineReview:
             return ""
 
         monkeypatch.setattr(agent, "gh", fake_gh)
-        monkeypatch.setattr(obj, "comment", lambda body: None)
+        monkeypatch.setattr(obj, "comment", lambda body, **kw: None)
 
         summary = "Looks good!"
         comments = [
@@ -392,7 +392,7 @@ class TestPostInlineReview:
         comment_calls = []
 
         monkeypatch.setattr(agent, "gh", lambda args, **kw: "")
-        monkeypatch.setattr(obj, "comment", lambda body: comment_calls.append(body))
+        monkeypatch.setattr(obj, "comment", lambda body, **kw: comment_calls.append(body))
 
         obj.post_inline_review("Summary only", [])
         assert len(comment_calls) == 1
@@ -429,7 +429,7 @@ class TestPostInlineReview:
             return ""
 
         monkeypatch.setattr(agent, "gh", fake_gh)
-        monkeypatch.setattr(obj, "comment", lambda body: None)
+        monkeypatch.setattr(obj, "comment", lambda body, **kw: None)
 
         comments = [
             {"path": "a.py", "line": "not_a_number", "body": "bad line"},
@@ -452,7 +452,7 @@ class TestPostInlineReview:
             return ""
 
         monkeypatch.setattr(agent, "gh", fake_gh)
-        monkeypatch.setattr(obj, "comment", lambda body: None)
+        monkeypatch.setattr(obj, "comment", lambda body, **kw: None)
 
         secret = "ghp_1234567890abcdef"
         summary = f"Review with {secret}"
@@ -635,7 +635,7 @@ class TestTriageParsing:
         monkeypatch.setattr(obj, "update_progress", lambda msg: None)
 
         comments = []
-        monkeypatch.setattr(obj, "comment", lambda body: comments.append(body))
+        monkeypatch.setattr(obj, "comment", lambda body, **kw: comments.append(body))
         obj._comments = comments
         return obj
 
@@ -671,7 +671,7 @@ class TestTriageParsing:
         monkeypatch.setattr(obj, "update_progress", lambda msg: None)
 
         comments = []
-        monkeypatch.setattr(obj, "comment", lambda body: comments.append(body))
+        monkeypatch.setattr(obj, "comment", lambda body, **kw: comments.append(body))
 
         obj.handle_triage()
 
@@ -712,7 +712,7 @@ class TestTriageParsing:
         monkeypatch.setattr(obj, "update_progress", lambda msg: None)
 
         comments = []
-        monkeypatch.setattr(obj, "comment", lambda body: comments.append(body))
+        monkeypatch.setattr(obj, "comment", lambda body, **kw: comments.append(body))
 
         obj.handle_triage()
 

@@ -650,7 +650,7 @@ class Ella:
         self.handle_triage()
 
     def _handle_help(self) -> None:
-        self.comment(self.help_text())
+        self.comment(self.help_text(), quote_trigger=True)
         self.react("+1")
 
     def _handle_close(self) -> None:
@@ -681,7 +681,8 @@ class Ella:
                 self.generate_message(
                     f"I just closed #{self.issue_number}. Context: {comment_text}. Write 1-2 friendly sentences as me (Ella). No headers.",
                     fallback=f"Closed #{self.issue_number}. {comment_text}"
-                )
+                ),
+                quote_trigger=True
             )
         self.react("+1")
 
@@ -706,7 +707,8 @@ class Ella:
                 self.generate_message(
                     f"I just reopened #{self.issue_number}. Context: {self.prompt}. Write 1-2 friendly sentences as me (Ella). No headers.",
                     fallback=f"Reopened #{self.issue_number}. {self.prompt}"
-                )
+                ),
+                quote_trigger=True
             )
         self.react("+1")
 
@@ -734,7 +736,7 @@ class Ella:
                 self.comment(f"Failed to assign @{user}. {msg}")
             self.react("confused")
             return
-        self.comment(f"Assigned @{user} to #{self.issue_number}.")
+        self.comment(f"Assigned @{user} to #{self.issue_number}.", quote_trigger=True)
         self.react("+1")
 
     def _handle_milestone(self) -> None:
@@ -773,7 +775,7 @@ class Ella:
             self.comment(f"Failed to set milestone. {scrub_secrets(str(exc))}")
             self.react("confused")
             return
-        self.comment(f"Added #{self.issue_number} to milestone \"{actual_title}\".")
+        self.comment(f"Added #{self.issue_number} to milestone \"{actual_title}\".", quote_trigger=True)
         self.react("+1")
 
     def _handle_read_only(self) -> None:
@@ -801,10 +803,10 @@ class Ella:
                     return
             except Exception as e:
                 print(f"Failed to parse review JSON: {e}")
-                self.comment("I tried to post an inline review but could not parse the model response as valid JSON. Here is the raw output:\n\n" + response)
+                self.comment("I tried to post an inline review but could not parse the model response as valid JSON. Here is the raw output:\n\n" + response, quote_trigger=True)
                 self.react("confused")
                 return
-        self.comment(response)
+        self.comment(response, quote_trigger=True)
         self.react("+1")
 
     def _handle_label(self) -> None:
@@ -866,17 +868,17 @@ class Ella:
                     f"I just fixed a PR (commit {commit_sha}). I am Ella, the AI assistant who made the fix. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
                     fallback=f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}"
                 )
-                self.comment(msg)
+                self.comment(msg, quote_trigger=True)
                 self.react("rocket")
             else:
                 msg = self.generate_message(
                     f"All checks passed, no code changes needed. Summary: {self.final_summary}. Write 2-3 friendly sentences. No headers.",
                     fallback=f"All checks passed and no changes were needed.\n\n{self.final_summary}"
                 )
-                self.comment(msg)
+                self.comment(msg, quote_trigger=True)
                 self.react("rocket")
         else:
-            self.comment(self.final_summary)
+            self.comment(self.final_summary, quote_trigger=True)
             self.react("confused")
 
     def _handle_solve(self) -> None:
@@ -924,17 +926,17 @@ class Ella:
                     f"I just solved this issue and opened PR {pr_url} (commit {commit_sha}). I am Ella, the AI assistant who made the fix - I'm announcing my own work here. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
                     fallback=f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`"
                 )
-                self.comment(msg)
+                self.comment(msg, quote_trigger=True)
                 self.react("rocket")
             else:
                 msg = self.generate_message(
                     f"All checks passed, no code changes needed. Summary: {self.final_summary}. Write 2-3 friendly sentences. No headers.",
                     fallback=f"All checks passed but no changes were needed.\n\n{self.final_summary}"
                 )
-                self.comment(msg)
+                self.comment(msg, quote_trigger=True)
                 self.react("rocket")
         else:
-            self.comment(self.final_summary)
+            self.comment(self.final_summary, quote_trigger=True)
             self.react("confused")
 
     def _handle_heal(self) -> None:
@@ -1219,9 +1221,24 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         except Exception:
             pass
 
-    def comment(self, body: str) -> None:
+    def comment(self, body: str, *, quote_trigger: bool = False) -> None:
+        """Post a comment on the current issue/PR.
+
+        When ``quote_trigger`` is True (and we were triggered by a comment),
+        the triggering comment body is prepended as a markdown quote block
+        so the reply visually references what the user asked. Used for
+        direct user-facing replies (ask, review summary, fix report, etc).
+        """
+        text = body
+        if quote_trigger and self.comment_id:
+            trigger_body = str(self.comment_event.get("body", "")).strip()
+            trigger_author = self.comment_event.get("user", {}).get("login", "")
+            if trigger_body and trigger_author:
+                lines = [f"> @{trigger_author}"] + [f"> {l}" for l in trigger_body.splitlines() if l.strip()]
+                quote = "\n".join(lines)
+                text = f"{quote}\n\n{text}"
         gh(["issue", "comment", str(self.issue_number),
-           "--repo", self.repo, "--body", scrub_secrets(body)])
+           "--repo", self.repo, "--body", scrub_secrets(text)])
 
     def create_progress_comment(self, body: str) -> None:
         out = gh([
@@ -1604,7 +1621,8 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         write_debug("labels.txt", "\n".join(picked) + "\n")
         write_debug("label-summary.txt", summary + "\n")
         self.comment(
-            f"I applied these labels: {', '.join(labels_by_name[name]['name'] for name in picked)}\n\n{summary}")
+            f"I applied these labels: {', '.join(labels_by_name[name]['name'] for name in picked)}\n\n{summary}",
+            quote_trigger=True)
 
     def post_inline_review(self, summary: str, comments: list[dict]) -> None:
         if not self.pr_info:
