@@ -2084,6 +2084,14 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 r":\s*\(\s*\)\s*\{", r"\bfind\s+.*-delete\b",
                 r"\bfind\s+.*-exec\s+rm\b", r"\bxargs\s+rm\b",
                 r"\btruncate\s+-s\b",
+                r"\bchmod\s+[-Rr]*\s*777\b",
+                r"\bkill\s+-9\b", r"\bkillall\b", r"\bpkill\b",
+                r"\bshutdown\b", r"\breboot\b",
+                r"\bcurl\s+.*\|\s*(bash|sh)\b",
+                r"\bwget\s+.*\|\s*(bash|sh)\b",
+                r"\bsudo\s+rm\b",
+                r"\bmv\s+.*\s+/dev/null\b",
+                r"\bcp\s+.*\s+/dev/(?!null|zero|stdout|stderr)",
             ]
             for pattern in blocked_patterns:
                 if re.search(pattern, cmd, re.IGNORECASE):
