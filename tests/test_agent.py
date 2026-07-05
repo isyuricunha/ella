@@ -88,6 +88,23 @@ class TestScrubSecrets:
         result = agent.scrub_secrets("found ghs_" + "d" * 36 + " here")
         assert "REDACTED" in result
 
+    def test_redacts_user_to_server_token(self):
+        result = agent.scrub_secrets("found ghu_" + "e" * 36 + " here")
+        assert "REDACTED" in result
+
+    def test_redacts_refresh_token(self):
+        result = agent.scrub_secrets("found ghr_" + "f" * 36 + " here")
+        assert "REDACTED" in result
+
+    def test_redacts_github_pat_token(self):
+        result = agent.scrub_secrets("found github_pat_" + "g" * 25 + " here")
+        assert "REDACTED" in result
+
+    def test_short_token_not_redacted(self):
+        result = agent.scrub_secrets("found ghp_short text")
+        assert "REDACTED" not in result
+        assert "ghp_short" in result
+
     def test_no_secret_passthrough(self):
         assert agent.scrub_secrets("nothing to redact") == "nothing to redact"
 

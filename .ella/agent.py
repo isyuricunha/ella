@@ -157,9 +157,9 @@ def scrub_secrets(text: str) -> str:
         if secret and len(secret) >= 3:
             text = text.replace(secret, "***REDACTED***")
 
-    # Also redact generic GitHub tokens pattern
-    text = re.sub(r'gh[ps]_[a-zA-Z0-9]{36}', '***REDACTED***', text)
-    # Redact ghp_ tokens (classic PATs)
+    # Also redact generic GitHub tokens pattern: ghp_, ghs_, ghu_, ghr_
+    text = re.sub(r'gh[psur]_[a-zA-Z0-9]{36}', '***REDACTED***', text)
+    # Redact fine-grained PATs (github_pat_)
     text = re.sub(r'github_pat_[a-zA-Z0-9_]{22,}', '***REDACTED***', text)
     return text
 
@@ -413,15 +413,18 @@ def load_ignore_patterns() -> list[str]:
 
 def is_ignored(path: str, patterns: list[str]) -> bool:
     normalized = path.replace("\\", "/")
+    name = Path(normalized).name
     for pattern in patterns:
         p = pattern.strip().replace("\\", "/")
         if not p:
             continue
         if fnmatch.fnmatch(normalized, p):
             return True
+        # pattern ending with /** matches everything inside that directory
         if p.endswith("/**") and normalized.startswith(p[:-3]):
             return True
-        if "/" not in p and fnmatch.fnmatch(Path(normalized).name, p):
+        # bare filename pattern (no /) matches the basename of any file
+        if "/" not in p and fnmatch.fnmatch(name, p):
             return True
     return False
 
@@ -3120,7 +3123,10 @@ def main() -> int:
         return 0
     except Exception as exc:
         msg = scrub_secrets(f"{type(exc).__name__}: {exc}\n")
-        write_debug("fatal-error.txt", msg)
+        try:
+            write_debug("fatal-error.txt", msg)
+        except Exception:
+            pass
         print(f"Fatal error: {scrub_secrets(str(exc))}", file=sys.stderr)
         return 1
 
