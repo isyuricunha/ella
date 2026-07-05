@@ -166,7 +166,11 @@ def scrub_secrets(text: str) -> str:
 
 def write_debug(name: str, text: str) -> None:
     safe_text = scrub_secrets(text)
-    (OUT / name).write_text(safe_text, encoding="utf-8", errors="replace")
+    # Sanitize filename: strip path separators and parent dir traversal
+    safe_name = name.replace("/", "_").replace("\\", "_").lstrip(".")
+    if not safe_name:
+        safe_name = "debug.txt"
+    (OUT / safe_name).write_text(safe_text, encoding="utf-8", errors="replace")
 
 
 def read_checks_summary() -> str:
