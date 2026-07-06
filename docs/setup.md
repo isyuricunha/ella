@@ -77,7 +77,7 @@ In your target repository, go to **Settings > Secrets and variables > Actions**,
 - `ELLA_AI_SMALL_BASE_URL`: Base URL for the small model. Defaults to `ELLA_AI_BASE_URL`.
 
 **Optional - Token Limits** (override defaults for specific modes):
-- `ELLA_MAX_TOKENS_ASK` (default 4096), `ELLA_MAX_TOKENS_PR` (16384), `ELLA_MAX_TOKENS_REVIEW` (16384), `ELLA_MAX_TOKENS_PLAN` (16384), `ELLA_MAX_TOKENS_LABEL` (4096), `ELLA_MAX_TOKENS_FIX` (16384), `ELLA_MAX_TOKENS_CONTINUE` (16384), `ELLA_MAX_TOKENS_SOLVE` (16384), `ELLA_MAX_TOKENS_HEAL` (16384), `ELLA_MAX_TOKENS_TRIAGE` (16384), `ELLA_MAX_TOKENS_QUOTE` (4096), `ELLA_MAX_TOKENS_WIKI` (16384).
+- `ELLA_MAX_TOKENS_ASK` (default 4096), `ELLA_MAX_TOKENS_PR` (16384), `ELLA_MAX_TOKENS_REVIEW` (16384), `ELLA_MAX_TOKENS_PLAN` (16384), `ELLA_MAX_TOKENS_LABEL` (4096), `ELLA_MAX_TOKENS_FIX` (16384), `ELLA_MAX_TOKENS_CONTINUE` (16384), `ELLA_MAX_TOKENS_SOLVE` (16384), `ELLA_MAX_TOKENS_HEAL` (16384), `ELLA_MAX_TOKENS_TRIAGE` (16384), `ELLA_MAX_TOKENS_QUOTE` (4096), `ELLA_MAX_TOKENS_WIKI` (16384), `ELLA_MAX_TOKENS_REVIEW_FIX` (16384).
 - `ELLA_MAX_ATTEMPTS`: Max loops for fixes (default 25 + 2 per allowed file, capped 300).
 - `ELLA_TIME_LIMIT_SECONDS`: Max execution time (default 3600s).
 - `ELLA_CMD_RETRIES`: Max retries for transient gh/git/AI failures (default 3, exponential backoff).

@@ -80,10 +80,10 @@ jobs:
   ella:
     if: >
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name != 'Ella Mizuki' && github.event.workflow_run.name != 'Release') ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'isyuricunha') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'YOUR_USERNAME') ||
       (github.event_name == 'issues' && github.event.action == 'opened') ||
       (github.event_name == 'pull_request_target' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
-      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && github.event.pull_request.user.login == 'isyuricunha') ||
+      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && github.event.review.user.login == 'YOUR_USERNAME') ||
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule'
     runs-on: ubuntu-latest
@@ -93,6 +93,9 @@ jobs:
         with:
           ella_app_client_id: ${{ secrets.ELLA_APP_CLIENT_ID }}
           ella_app_private_key: ${{ secrets.ELLA_APP_PRIVATE_KEY }}
+          ai_base_url: ${{ secrets.ELLA_AI_BASE_URL }}
+          ai_model: ${{ secrets.ELLA_AI_MODEL }}
+          ai_api_key: ${{ secrets.ELLA_AI_API_KEY }}
 ```
 
 4. **(Optional)** To customize her persona for your specific repository, create an `ELLA.md`, `AGENTS.md`, `.github/copilot-instructions.md`, or `.github/ella-instructions.md` file in the root of your repository with your extra instructions.
