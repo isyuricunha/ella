@@ -238,6 +238,44 @@ class TestCommentQuoteTrigger:
         assert "> \n" not in body_arg and ">\n" not in body_arg
 
 
+# --- _suggest_command ---
+
+
+class TestSuggestCommand:
+    def test_exact_match_returns_none(self):
+        ella = _make_ella_shell()
+        assert ella._suggest_command("/ella ask hello") is None
+        assert ella._suggest_command("/ella fix this") is None
+        assert ella._suggest_command("/ella help") is None
+
+    def test_typo_suggests_closest(self):
+        ella = _make_ella_shell()
+        # 'asl' is close to 'ask'
+        result = ella._suggest_command("/ella asl something")
+        assert result is not None
+        assert "ask" in [result] or result == "ask"
+
+    def test_no_ella_prefix_returns_none(self):
+        ella = _make_ella_shell()
+        assert ella._suggest_command("hello world") is None
+
+    def test_garbage_after_ella_returns_none(self):
+        ella = _make_ella_shell()
+        # 'zzzz' doesn't match anything closely
+        assert ella._suggest_command("/ella zzzz") is None
+
+    def test_prefix_match_finds_command(self):
+        ella = _make_ella_shell()
+        # 'rev' is a prefix of 'review'
+        result = ella._suggest_command("/ella rev this")
+        assert result is not None
+
+    def test_reveiw_typo_finds_review(self):
+        ella = _make_ella_shell()
+        result = ella._suggest_command("/ella reveiw this")
+        assert result == "review"
+
+
 # --- is_ignored ---
 
 

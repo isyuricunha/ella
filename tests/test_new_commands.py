@@ -405,7 +405,7 @@ class TestPullRequestReviewRouting:
              patch.object(agent.Ella, "comment"), \
              patch.object(agent.Ella, "react"):
             error = obj._validate_and_load_context()
-            assert error == "That command needs to be used inside a PR."
+            assert error == "That command needs to be used inside a PR. (See `/ella help` for available commands.)"
 
 
 # --- parse_command for new slash commands ---

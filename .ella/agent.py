@@ -579,10 +579,17 @@ class Ella:
                 raise RuntimeError("Repository owner not found in event")
             if user_login != repo_owner:
                 print(f"Skipping: ignoring comment from unauthorized user {user_login}. Only repo owner can use the bot.")
+                self.react("-1")
                 return
 
-        if self.comment_id:
-            self.react("eyes")
+        # Friendly response to bare "/ella" (are you there? probe)
+        body = str(self.comment_event.get("body", "")).strip()
+        if re.match(r"^/ella\s*$", body, re.IGNORECASE):
+            self.comment("Hi! I'm here. Type `/ella help` to see what I can do.", quote_trigger=True)
+            self.react("+1")
+            return
+
+        self.react("eyes")
         self.parse_command()
 
         handler = self._dispatch.get(self.mode)
@@ -592,13 +599,17 @@ class Ella:
             except Exception as exc:
                 print(f"Unhandled error in handler {self.mode}: {exc}")
                 try:
-                    self.comment(f"❌ Something went wrong while I was working on this. Error: {scrub_secrets(str(exc))}")
+                    self.comment(f"❌ Something went wrong while I was working on this. Error: {scrub_secrets(str(exc))}", quote_trigger=True)
                     self.react("confused")
                 except Exception:
                     pass
             return
 
-        self.comment("I do not recognize that command. Use `/ella help`.")
+        suggestion = self._suggest_command(body)
+        if suggestion:
+            self.comment(f"I do not recognize that command. Did you mean `/ella {suggestion}`? Use `/ella help` to see all commands.", quote_trigger=True)
+        else:
+            self.comment("I do not recognize that command. Use `/ella help`.", quote_trigger=True)
         self.react("confused")
 
     # --- Pre-dispatch validation shared by AI modes ---
@@ -614,10 +625,10 @@ class Ella:
         issue_only = {"ask", "triage", "plan", "label", "solve", "close", "reopen", "assign", "milestone"}
 
         if (not self.is_pr) and self.mode in pr_only:
-            return "That command needs to be used inside a PR."
+            return "That command needs to be used inside a PR. (See `/ella help` for available commands.)"
 
         if self.is_pr and self.mode == "solve":
-            return "Use `/ella fix` inside a PR. Use `/ella solve` on an issue."
+            return "Use `/ella fix` inside a PR, or `/ella solve` on an issue. (See `/ella help` for details.)"
 
         if self.is_pr and self.mode in (pr_only | issue_only) - {"solve"}:
             self.load_pr_metadata()
@@ -637,7 +648,7 @@ class Ella:
             self.handle_wiki()
         except Exception as exc:
             print(f"AI call failed during wiki: {exc}")
-            self.comment("❌ I could not generate the wiki. The AI endpoint returned an error.")
+            self.comment("❌ I could not generate the wiki. The AI endpoint returned an error.", quote_trigger=True)
             self.react("confused")
 
     def _handle_triage(self) -> None:
@@ -655,7 +666,7 @@ class Ella:
 
     def _handle_close(self) -> None:
         if self.issue_number < 0:
-            self.comment("I can only close an issue or PR that I can see.")
+            self.comment("I can only close an issue or PR that I can see.", quote_trigger=True)
             self.react("confused")
             return
         valid_reasons = {"completed", "not_planned", "duplicate"}
@@ -672,7 +683,7 @@ class Ella:
             ])
         except Exception as exc:
             print(f"Failed to close #{self.issue_number}: {exc}")
-            self.comment(f"Failed to close #{self.issue_number}. {scrub_secrets(str(exc))}")
+            self.comment(f"Failed to close #{self.issue_number}. {scrub_secrets(str(exc))}", quote_trigger=True)
             self.react("confused")
             return
         comment_text = reason_input if reason_input and reason_input.lower() not in valid_reasons else ""
@@ -688,7 +699,7 @@ class Ella:
 
     def _handle_reopen(self) -> None:
         if self.issue_number < 0:
-            self.comment("I can only reopen an issue or PR that I can see.")
+            self.comment("I can only reopen an issue or PR that I can see.", quote_trigger=True)
             self.react("confused")
             return
         try:
@@ -699,7 +710,7 @@ class Ella:
             ])
         except Exception as exc:
             print(f"Failed to reopen #{self.issue_number}: {exc}")
-            self.comment(f"Failed to reopen #{self.issue_number}. {scrub_secrets(str(exc))}")
+            self.comment(f"Failed to reopen #{self.issue_number}. {scrub_secrets(str(exc))}", quote_trigger=True)
             self.react("confused")
             return
         if self.prompt:
@@ -714,12 +725,12 @@ class Ella:
 
     def _handle_assign(self) -> None:
         if self.issue_number < 0:
-            self.comment("I can only assign someone to an issue or PR that I can see.")
+            self.comment("I can only assign someone to an issue or PR that I can see.", quote_trigger=True)
             self.react("confused")
             return
         user = self.prompt.strip().lstrip("@")
         if not user:
-            self.comment("Tell me who to assign! Example: `/ella assign @username`.")
+            self.comment("Tell me who to assign! Example: `/ella assign @username`.", quote_trigger=True)
             self.react("confused")
             return
         try:
@@ -731,9 +742,9 @@ class Ella:
         except Exception as exc:
             msg = scrub_secrets(str(exc))
             if "not found" in msg.lower():
-                self.comment(f"User @{user} doesn't exist or can't be assigned to this repo.")
+                self.comment(f"User @{user} doesn't exist or can't be assigned to this repo.", quote_trigger=True)
             else:
-                self.comment(f"Failed to assign @{user}. {msg}")
+                self.comment(f"Failed to assign @{user}. {msg}", quote_trigger=True)
             self.react("confused")
             return
         self.comment(f"Assigned @{user} to #{self.issue_number}.", quote_trigger=True)
@@ -741,12 +752,12 @@ class Ella:
 
     def _handle_milestone(self) -> None:
         if self.issue_number < 0:
-            self.comment("I can only set a milestone on an issue or PR that I can see.")
+            self.comment("I can only set a milestone on an issue or PR that I can see.", quote_trigger=True)
             self.react("confused")
             return
         title = self.prompt.strip().strip('"').strip("'")
         if not title:
-            self.comment("Tell me which milestone to set! Example: `/ella milestone \"v2.0\"`.")
+            self.comment("Tell me which milestone to set! Example: `/ella milestone \"v2.0\"`.", quote_trigger=True)
             self.react("confused")
             return
         try:
@@ -762,7 +773,7 @@ class Ella:
                     actual_title = m["title"]
                     break
             if actual_title is None:
-                self.comment(f"Milestone \"{title}\" not found. Available milestones: {', '.join(m.get('title', '') for m in milestones) or 'none'}.")
+                self.comment(f"Milestone \"{title}\" not found. Available milestones: {', '.join(m.get('title', '') for m in milestones) or 'none'}.", quote_trigger=True)
                 self.react("confused")
                 return
             gh([
@@ -772,7 +783,7 @@ class Ella:
             ])
         except Exception as exc:
             print(f"Failed to set milestone on #{self.issue_number}: {exc}")
-            self.comment(f"Failed to set milestone. {scrub_secrets(str(exc))}")
+            self.comment(f"Failed to set milestone. {scrub_secrets(str(exc))}", quote_trigger=True)
             self.react("confused")
             return
         self.comment(f"Added #{self.issue_number} to milestone \"{actual_title}\".", quote_trigger=True)
@@ -782,14 +793,14 @@ class Ella:
         error = self._validate_and_load_context()
         if error:
             if error != "__skip__":
-                self.comment(error)
+                self.comment(error, quote_trigger=True)
                 self.react("confused")
             return
         try:
             response = self.handle_read_only()
         except Exception as exc:
             print(f"AI call failed during {self.mode}: {exc}")
-            self.comment("❌ I could not generate a response. The AI endpoint returned an error.")
+            self.comment("❌ I could not generate a response. The AI endpoint returned an error.", quote_trigger=True)
             self.react("confused")
             return
         if self.mode == "review":
@@ -813,14 +824,14 @@ class Ella:
         error = self._validate_and_load_context()
         if error:
             if error != "__skip__":
-                self.comment(error)
+                self.comment(error, quote_trigger=True)
                 self.react("confused")
             return
         try:
             self.handle_label()
         except Exception as exc:
             print(f"AI call failed during label: {exc}")
-            self.comment("❌ I could not classify labels. The AI endpoint returned an error.")
+            self.comment("❌ I could not classify labels. The AI endpoint returned an error.", quote_trigger=True)
             self.react("confused")
             return
         self.react("+1")
@@ -829,19 +840,20 @@ class Ella:
         error = self._validate_and_load_context()
         if error:
             if error != "__skip__":
-                self.comment(error)
+                self.comment(error, quote_trigger=True)
                 self.react("confused")
             return
         if self.pr_info and self.pr_info.get("isCrossRepository") is True:
             self.comment(
-                "For security reasons, I can only commit to branches inside this repository. If you are an external contributor, please ask a maintainer to pull your branch here first!")
+                "For security reasons, I can only commit to branches inside this repository. If you are an external contributor, please ask a maintainer to pull your branch here first!",
+                quote_trigger=True)
             self.react("confused")
             return
         try:
             self.checkout_pr_branch()
         except Exception as exc:
             print(f"Failed to checkout PR branch: {exc}")
-            self.comment(f"❌ I couldn't check out the PR branch: {scrub_secrets(str(exc))}")
+            self.comment(f"❌ I couldn't check out the PR branch: {scrub_secrets(str(exc))}", quote_trigger=True)
             self.react("confused")
             return
         self.load_repo_instructions()
@@ -860,12 +872,12 @@ class Ella:
                 commit_sha = self.commit_and_push_fix()
             except Exception as exc:
                 print(f"Failed to commit and push fix: {exc}")
-                self.comment(f"❌ I fixed the PR and passed all checks, but the push failed: {scrub_secrets(str(exc))}")
+                self.comment(f"❌ I fixed the PR and passed all checks, but the push failed: {scrub_secrets(str(exc))}", quote_trigger=True)
                 self.react("confused")
                 return
             if commit_sha:
                 msg = self.generate_message(
-                    f"I just fixed a PR (commit {commit_sha}). I am Ella, the AI assistant who made the fix. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
+                    f"I just fixed a PR (commit {commit_sha}). Summary: {self.final_summary}. Write 2-3 friendly sentences in first person announcing what I did. No headers.",
                     fallback=f"I applied the fix and committed it.\n\nCommit: `{commit_sha}`\n\n{self.final_summary}"
                 )
                 self.comment(msg, quote_trigger=True)
@@ -885,14 +897,14 @@ class Ella:
         error = self._validate_and_load_context()
         if error:
             if error != "__skip__":
-                self.comment(error)
+                self.comment(error, quote_trigger=True)
                 self.react("confused")
             return
         try:
             self.checkout_solve_branch()
         except Exception as exc:
             print(f"Failed to checkout solve branch: {exc}")
-            self.comment(f"❌ I couldn't create a working branch: {scrub_secrets(str(exc))}")
+            self.comment(f"❌ I couldn't create a working branch: {scrub_secrets(str(exc))}", quote_trigger=True)
             self.react("confused")
             return
         self.load_repo_instructions()
@@ -911,7 +923,7 @@ class Ella:
                 commit_sha = self.commit_and_push_solve()
             except Exception as exc:
                 print(f"Failed to commit and push solve: {exc}")
-                self.comment(f"❌ I solved the issue and passed all checks, but the push failed: {scrub_secrets(str(exc))}")
+                self.comment(f"❌ I solved the issue and passed all checks, but the push failed: {scrub_secrets(str(exc))}", quote_trigger=True)
                 self.react("confused")
                 return
             if commit_sha:
@@ -919,11 +931,11 @@ class Ella:
                     pr_url = self.create_solve_pr()
                 except Exception as exc:
                     print(f"Failed to create solve PR: {exc}")
-                    self.comment(f"❌ I solved the issue and pushed the commit, but creating the PR failed: {scrub_secrets(str(exc))}")
+                    self.comment(f"❌ I solved the issue and pushed the commit, but creating the PR failed: {scrub_secrets(str(exc))}", quote_trigger=True)
                     self.react("confused")
                     return
                 msg = self.generate_message(
-                    f"I just solved this issue and opened PR {pr_url} (commit {commit_sha}). I am Ella, the AI assistant who made the fix - I'm announcing my own work here. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
+                    f"I just solved this issue and opened PR {pr_url} (commit {commit_sha}). Summary: {self.final_summary}. Write 2-3 friendly sentences in first person announcing what I did. No headers.",
                     fallback=f"I created a PR for this issue.\n\nPR: {pr_url}\nCommit: `{commit_sha}`"
                 )
                 self.comment(msg, quote_trigger=True)
@@ -1068,6 +1080,30 @@ class Ella:
             if value:
                 print(f"::add-mask::{value}")
 
+    def _suggest_command(self, body: str) -> str | None:
+        """Return the closest matching command name for an unrecognized /ella invocation, or None."""
+        match = re.search(r"/ella\s+(\w+)", body, re.IGNORECASE)
+        if not match:
+            return None
+        typed = match.group(1).lower()
+        known = ["help", "ask", "pr", "review", "plan", "label", "fix", "continue",
+                 "solve", "wiki", "close", "reopen", "assign", "milestone"]
+        if typed in known:
+            return None
+        best = None
+        best_score = 0
+        for cmd in known:
+            score = 0
+            for i, ch in enumerate(typed):
+                if i < len(cmd) and ch == cmd[i]:
+                    score += 1
+            if typed.startswith(cmd[:3]) or cmd.startswith(typed[:3]):
+                score += 2
+            if score > best_score:
+                best_score = score
+                best = cmd
+        return best if best_score >= 2 else None
+
     def parse_command(self) -> None:
         event_name = os.environ.get("GITHUB_EVENT_NAME", "")
         if event_name == "issues" and self.event.get("action") == "opened":
@@ -1190,7 +1226,7 @@ I keep trying to fix the PR if the previous attempt hit a limit.
 On an issue, I create a branch, fix it, run checks, and open a PR.
 
 `/ella close [reason]`
-I close this issue or PR. Reason can be `completed`, `not_planned`, `duplicate`, or any text (defaults to not_planned).
+I close this issue or PR. Reason can be `completed`, `not_planned`, or `duplicate`. Any other text becomes a closing comment (defaults to not_planned). Note: `duplicate` sets the GitHub state reason but does not link to another issue - use the GitHub UI for that.
 
 `/ella reopen [comment]`
 I reopen a closed issue or PR with an optional comment.
@@ -1582,7 +1618,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
         try:
             data = parse_jsonish(response)
         except Exception:
-            self.comment("I could not parse the label response as JSON.")
+            self.comment("I could not parse the label response as JSON.", quote_trigger=True)
             self.react("confused")
             return
 
@@ -1595,7 +1631,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 picked.append(name)
 
         if not picked:
-            self.comment("I could not find any valid labels to apply.")
+            self.comment("I could not find any valid labels to apply.", quote_trigger=True)
             self.react("confused")
             return
 
@@ -1655,7 +1691,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 })
 
         if not payload["comments"]:
-            self.comment(summary)
+            self.comment(summary, quote_trigger=True)
             return
 
         json_payload = json.dumps(payload)
@@ -1665,10 +1701,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
 
         try:
             gh(["api", "--method", "POST", f"repos/{self.repo}/pulls/{self.issue_number}/reviews", "--input", temp_path])
-            self.comment("I left a few inline comments on the changed files! 🚀")
+            self.comment("I left a few inline comments on the changed files! 🚀", quote_trigger=True)
         except Exception as e:
             print(f"Failed to post inline review: {e}")
-            self.comment(summary + "\n\n(Note: I tried to post inline comments but an error occurred.)")
+            self.comment(summary + "\n\n(Note: I tried to post inline comments but an error occurred.)", quote_trigger=True)
         finally:
             os.remove(temp_path)
 
@@ -1753,7 +1789,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 return
             if commit_sha:
                 msg = self.generate_message(
-                    f"I auto-healed the CI (commit {commit_sha}). I am Ella, the AI assistant who did the fix. Summary: {self.final_summary}. Write 2-3 friendly sentences in first person as me (Ella) announcing what I did. No headers.",
+                    f"I auto-healed the CI (commit {commit_sha}). Summary: {self.final_summary}. Write 2-3 friendly sentences in first person announcing what I did. No headers.",
                     fallback=f"🚑 I successfully auto-healed the CI pipeline!\n\nCommit: `{commit_sha}`\n\n{self.final_summary}"
                 )
                 self.comment(msg)
@@ -2974,10 +3010,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             "If asked who made you or who trained you, say Yuri set you up as Ella Mizuki.\n\n"
             "Check if the new issue duplicates an existing open issue. Then write a response that works as a standalone comment (the markers below are metadata that get stripped, so the visible text must be a complete message on its own).\n\n"
             "NOT A DUPLICATE:\n"
-            "Write a warm greeting to the issue author, acknowledge what they reported, and say Yuri will look into it. Write 2-4 sentences - don't be overly brief. Don't mention other issues.\n"
+            "Write a warm greeting to the issue author (always start by mentioning them as @{author}, e.g. 'Hi @username!'), acknowledge what they reported, and say Yuri will look into it. Write 2-4 sentences - don't be overly brief. Don't mention other issues.\n"
             "Add `ASSIGN: yes` on a new line at the end so Yuri gets assigned.\n\n"
             "DUPLICATE:\n"
-            "Greet the user, explain the issue is similar to an existing one (mention by number, e.g., #123). "
+            "Greet the user (always start by mentioning them as @{author}), explain the issue is similar to an existing one (mention by number, e.g., #123). "
             "Say you'll close this one so they can follow the original. Don't mention Yuri or assignment.\n"
             "Add `DUPLICATE_OF: #123` on a new line at the end (replace 123 with the actual number). Don't include `ASSIGN: yes`.\n\n"
             "LABELS (non-duplicates only):\n"
