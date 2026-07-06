@@ -100,6 +100,11 @@ def env_int(name: str, default: int) -> int:
 
 TIME_LIMIT_SECONDS = env_int("ELLA_TIME_LIMIT_SECONDS", 3600)
 
+# Minimum queue delay (seconds) before posting a "queued" feedback comment.
+# Below this, the delay is negligible and not worth a comment. Above this,
+# the user gets feedback that their command was queued behind another run.
+QUEUE_DELAY_THRESHOLD_SECONDS = env_int("ELLA_QUEUE_DELAY_THRESHOLD", 15)
+
 COMMIT_SUBJECT_RE = re.compile(
     r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|audit|security|style|test)(\([a-z0-9._/-]+\))?!?: .+"
 )
@@ -581,6 +586,16 @@ class Ella:
                 print(f"Skipping: ignoring comment from unauthorized user {user_login}. Only repo owner can use the bot.")
                 self.react("-1")
                 return
+
+        # Detect if this run was queued behind another and post a queue comment.
+        # This gives the user feedback when two /ella comments arrive in quick
+        # succession and the second has to wait for the first to finish.
+        queue_delay = self._detect_queue_delay()
+        if queue_delay >= QUEUE_DELAY_THRESHOLD_SECONDS and self.comment_id:
+            self.comment(
+                f"⏳ I was queued behind another run for ~{queue_delay}s. Starting now!",
+                quote_trigger=True
+            )
 
         # Friendly response to bare "/ella" (are you there? probe)
         body = str(self.comment_event.get("body", "")).strip()
@@ -1079,6 +1094,48 @@ class Ella:
             value = os.environ.get(secret, "")
             if value:
                 print(f"::add-mask::{value}")
+
+    def _detect_queue_delay(self) -> int:
+        """Return how many seconds this run spent queued before starting, or 0.
+
+        Uses the GitHub Actions API to compare the run's created_at timestamp
+        with the first job's started_at timestamp. If the job started more than
+        a few seconds after the run was created, the run was queued behind
+        another run in the same concurrency group.
+
+        Returns 0 if the API call fails or the run/job IDs are unavailable
+        (e.g. running locally outside GitHub Actions).
+        """
+        run_id = os.environ.get("GITHUB_RUN_ID", "")
+        if not run_id:
+            return 0
+        try:
+            run_data = gh([
+                "api", "--method", "GET",
+                f"repos/{self.repo}/actions/runs/{run_id}",
+            ])
+            run = json.loads(run_data)
+            created_at = run.get("created_at", "")
+            if not created_at:
+                return 0
+            jobs_data = gh([
+                "api", "--method", "GET",
+                f"repos/{self.repo}/actions/runs/{run_id}/jobs",
+            ])
+            jobs = json.loads(jobs_data).get("jobs", [])
+            if not jobs:
+                return 0
+            started_at = jobs[0].get("started_at", "")
+            if not started_at:
+                return 0
+            from datetime import datetime, timezone
+            created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            started_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            delay = int((started_dt - created_dt).total_seconds())
+            return max(0, delay)
+        except Exception as exc:
+            print(f"Failed to detect queue delay: {exc}")
+            return 0
 
     def _suggest_command(self, body: str) -> str | None:
         """Return the closest matching command name for an unrecognized /ella invocation, or None."""

@@ -276,6 +276,71 @@ class TestSuggestCommand:
         assert result == "review"
 
 
+# --- _detect_queue_delay ---
+
+
+class TestDetectQueueDelay:
+    def test_no_run_id_returns_zero(self, monkeypatch):
+        monkeypatch.delenv("GITHUB_RUN_ID", raising=False)
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        assert ella._detect_queue_delay() == 0
+
+    def test_api_failure_returns_zero(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_RUN_ID", "12345")
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: (_ for _ in ()).throw(Exception("API down")))
+        assert ella._detect_queue_delay() == 0
+
+    def test_calculates_delay_from_api(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_RUN_ID", "99999")
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        call_count = [0]
+        def mock_gh(args, **kw):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First call: run details
+                return json.dumps({"created_at": "2026-07-06T13:28:23Z"})
+            else:
+                # Second call: jobs
+                return json.dumps({"jobs": [{"started_at": "2026-07-06T13:28:47Z"}]})
+        monkeypatch.setattr(agent, "gh", mock_gh)
+        delay = ella._detect_queue_delay()
+        assert delay == 24
+
+    def test_no_delay_returns_zero(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_RUN_ID", "88888")
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        call_count = [0]
+        def mock_gh(args, **kw):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return json.dumps({"created_at": "2026-07-06T13:28:18Z"})
+            else:
+                return json.dumps({"jobs": [{"started_at": "2026-07-06T13:28:21Z"}]})
+        monkeypatch.setattr(agent, "gh", mock_gh)
+        delay = ella._detect_queue_delay()
+        assert delay == 3  # 3 seconds delay, below threshold
+
+    def test_empty_jobs_returns_zero(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_RUN_ID", "77777")
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        call_count = [0]
+        def mock_gh(args, **kw):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return json.dumps({"created_at": "2026-07-06T13:28:18Z"})
+            else:
+                return json.dumps({"jobs": []})
+        monkeypatch.setattr(agent, "gh", mock_gh)
+        delay = ella._detect_queue_delay()
+        assert delay == 0
+
+
 # --- is_ignored ---
 
 
