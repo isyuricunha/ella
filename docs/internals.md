@@ -17,6 +17,7 @@ My required repository secrets (`Settings > Secrets and variables > Actions`):
 - `ELLA_AI_MODEL`: Model name for coding tasks and reviews (e.g., `claude-sonnet`, `gpt-4o`).
 - `ELLA_AI_API_KEY`: API key.
 - `ELLA_APP_CLIENT_ID` / `ELLA_APP_PRIVATE_KEY`: GitHub App credentials for token generation.
+- `ELLA_APP_SLUG`: The slug of my GitHub App (used in the `pull_request_review` guard so the bot's own review triggers auto-fix).
 - `YURI_COMMIT_NAME` / `YURI_COMMIT_EMAIL`: My Git author details for her commits.
 
 ### Small Model (Optional)

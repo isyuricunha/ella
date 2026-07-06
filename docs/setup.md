@@ -69,6 +69,7 @@ In your target repository, go to **Settings > Secrets and variables > Actions**,
 - `ELLA_AI_MODEL`: The model name for coding tasks and reviews (e.g., `gpt-4o`).
 - `ELLA_AI_API_KEY`: Your API key for the LLM.
 - `ELLA_APP_CLIENT_ID` & `ELLA_APP_PRIVATE_KEY`: GitHub App credentials.
+- `ELLA_APP_SLUG`: The slug of your GitHub App (used in the `pull_request_review` guard so the bot's own review triggers auto-fix). Set this to your App's slug (e.g., `ella-mizuki`).
 - `YURI_COMMIT_NAME` & `YURI_COMMIT_EMAIL`: Git author name and email for commit metadata.
 
 **Optional - Small Model** (for triage, ask, pr, plan, label, wiki, quote):

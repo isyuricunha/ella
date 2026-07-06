@@ -18,7 +18,7 @@
 
 ### Automated
 - **Issue Triage**: Detects duplicate issues, assigns labels, assigns the repo owner (non-duplicates only), and replies. Skips bot-created issues.
-- **PR Review**: Analyzes diffs for bugs, security issues, and missing tests. Runs automatically when a PR is opened or synchronized (skips drafts). Also re-triggers automatically when a reviewer requests changes.
+- **PR Review**: Analyzes diffs for bugs, security issues, and missing tests. Runs automatically when a PR is opened or synchronized (skips drafts). When a reviewer requests changes, Ella automatically attempts to fix the feedback and commits to the PR branch.
 - **Auto-Heal**: When a CI workflow fails, downloads the logs, attempts a fix, and commits it to the PR branch.
 - **Quote of the Week**: Generates a fresh, AI-written quote in the profile README via `workflow_dispatch` or `schedule` events.
 
@@ -83,7 +83,7 @@ jobs:
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'YOUR_USERNAME') ||
       (github.event_name == 'issues' && github.event.action == 'opened') ||
       (github.event_name == 'pull_request_target' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
-      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && github.event.review.user.login == 'YOUR_USERNAME') ||
+      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && (github.event.review.user.login == 'YOUR_USERNAME' || github.event.review.user.login == '${{ secrets.ELLA_APP_SLUG }}[bot]')) ||
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule'
     runs-on: ubuntu-latest
@@ -96,6 +96,12 @@ jobs:
           ai_base_url: ${{ secrets.ELLA_AI_BASE_URL }}
           ai_model: ${{ secrets.ELLA_AI_MODEL }}
           ai_api_key: ${{ secrets.ELLA_AI_API_KEY }}
+          # Optional - small model and commit identity:
+          ai_small_model: ${{ secrets.ELLA_AI_SMALL_MODEL }}
+          ai_small_api_key: ${{ secrets.ELLA_AI_SMALL_API_KEY }}
+          ai_small_base_url: ${{ secrets.ELLA_AI_SMALL_BASE_URL }}
+          yuri_commit_name: ${{ secrets.YURI_COMMIT_NAME }}
+          yuri_commit_email: ${{ secrets.YURI_COMMIT_EMAIL }}
 ```
 
 4. **(Optional)** To customize her persona for your specific repository, create an `ELLA.md`, `AGENTS.md`, `.github/copilot-instructions.md`, or `.github/ella-instructions.md` file in the root of your repository with your extra instructions.
