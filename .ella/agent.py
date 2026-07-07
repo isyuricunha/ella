@@ -587,16 +587,6 @@ class Ella:
                 self.react("-1")
                 return
 
-        # Detect if this run was queued behind another and post a queue comment.
-        # This gives the user feedback when two /ella comments arrive in quick
-        # succession and the second has to wait for the first to finish.
-        queue_delay = self._detect_queue_delay()
-        if queue_delay >= QUEUE_DELAY_THRESHOLD_SECONDS and self.comment_id:
-            self.comment(
-                f"⏳ I was queued behind another run for ~{queue_delay}s. Starting now!",
-                quote_trigger=True
-            )
-
         # Friendly response to bare "/ella" (are you there? probe)
         body = str(self.comment_event.get("body", "")).strip()
         if re.match(r"^/ella\s*$", body, re.IGNORECASE):
@@ -606,6 +596,18 @@ class Ella:
 
         self.react("eyes")
         self.parse_command()
+
+        # Detect if this run was queued behind another and post a queue comment.
+        # Only for long-running commands where the wait is meaningful - instant
+        # commands (help, close, label, assign, milestone, reopen) don't need
+        # queue feedback because the response follows within seconds anyway.
+        if self.comment_id and self.mode in {"fix", "solve", "review", "plan", "wiki", "continue"}:
+            queue_delay = self._detect_queue_delay()
+            if queue_delay >= QUEUE_DELAY_THRESHOLD_SECONDS:
+                self.comment(
+                    f"⏳ I was queued behind another run for ~{queue_delay}s. Starting now!",
+                    quote_trigger=True
+                )
 
         handler = self._dispatch.get(self.mode)
         if handler:
@@ -710,6 +712,8 @@ class Ella:
                 ),
                 quote_trigger=True
             )
+        else:
+            self.comment(f"Closed #{self.issue_number} as {state_reason}.", quote_trigger=True)
         self.react("+1")
 
     def _handle_reopen(self) -> None:
@@ -1398,11 +1402,16 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 print("generate_message: output too long, using fallback")
                 return fallback
 
+            # Only strip reasoning lines if they dominate the output (more than
+            # half the lines look like leaked reasoning). This avoids truncating
+            # legitimate messages that happen to start with common words.
             reasoning_prefixes = ("Let me", "Let's", "We are", "I need to", "I should",
                                   "Since", "However", "But note", "Note:", "The user")
-            clean_lines = [l for l in lines if not l.strip().startswith(reasoning_prefixes)]
-            if clean_lines and len(clean_lines) < len(lines):
-                text = "\n".join(clean_lines).strip()
+            reasoning_lines = [l for l in lines if l.strip().startswith(reasoning_prefixes)]
+            if reasoning_lines and len(reasoning_lines) > len(lines) // 2:
+                clean_lines = [l for l in lines if not l.strip().startswith(reasoning_prefixes)]
+                if clean_lines:
+                    text = "\n".join(clean_lines).strip()
 
             return text or fallback
         except Exception as exc:
@@ -1417,13 +1426,29 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             lines.append(f"\n> {detail}")
         self.update_progress("\n".join(lines))
 
+    def delete_progress(self) -> None:
+        """Delete the progress comment to keep the thread clean after completion."""
+        if not self.progress_comment_id:
+            return
+        try:
+            gh([
+                "api",
+                "--method",
+                "DELETE",
+                f"repos/{self.repo}/issues/comments/{self.progress_comment_id}",
+            ])
+            self.progress_comment_id = None
+        except Exception as e:
+            print(f"Warning: failed to delete progress comment: {e}")
+
     def update_checklist(self, attempt: int, step: str, status: str, detail: str = "") -> None:
         elapsed = int(time.time() - getattr(self, "fix_start_time", time.time()))
+        remaining = max(0, TIME_LIMIT_SECONDS - elapsed)
 
         lines = [
             "### 🤖 Ella is working on it...\n",
             f"**Limits:** {self.max_attempts} turns | {TIME_LIMIT_SECONDS // 60} minutes",
-            f"**Time elapsed:** {elapsed}s",
+            f"**Time elapsed:** {elapsed}s | **remaining:** ~{remaining // 60}m {remaining % 60}s",
         ]
 
         failed = attempt - 1
@@ -1816,7 +1841,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             self.checkout_pr_branch()
         except Exception as exc:
             print(f"Failed to checkout PR branch for heal: {exc}")
-            self.comment(f"❌ I couldn't check out the PR branch to investigate: {scrub_secrets(str(exc))}")
+            self.comment(f"❌ I couldn't check out the PR branch to investigate: {scrub_secrets(str(exc))}", quote_trigger=True)
             self.react("confused")
             return
         self.load_repo_instructions()
@@ -1841,7 +1866,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 commit_sha = self.commit_and_push_fix()
             except Exception as exc:
                 print(f"Failed to commit and push heal fix: {exc}")
-                self.comment(f"❌ I fixed the CI and passed all checks, but the push failed: {scrub_secrets(str(exc))}")
+                self.comment(f"❌ I fixed the CI and passed all checks, but the push failed: {scrub_secrets(str(exc))}", quote_trigger=True)
                 self.react("confused")
                 return
             if commit_sha:
@@ -3098,45 +3123,28 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             content_resp, _ = self.ai_call(messages, MAX_TOKENS.get("triage", 8192), use_small=True)
         except Exception as exc:
             print(f"AI call failed during triage: {exc}")
-            self.update_progress("❌ I could not generate a triage response. The AI endpoint returned an error.")
+            self.delete_progress()
             return
         response = _strip_tool_call_json(content_resp or "")
-        
-        self.update_task_checklist("Issue Triage", [("Fetching issues", True), ("Generating response", True)])
-        
+
         match_duplicate = re.search(r"DUPLICATE_OF:\s*#(\d+)", response)
         match_labels = re.search(r"LABELS:\s*(.+)", response)
         match_assign = re.search(r"ASSIGN:\s*yes", response, re.IGNORECASE)
 
+        # Strip metadata markers from the visible response regardless of path.
         if match_assign:
             response = response.replace(match_assign.group(0), "").strip()
-
         if match_labels:
             response = response.replace(match_labels.group(0), "").strip()
-            labels_str = match_labels.group(1)
-            picked = []
-            for item in labels_str.split(","):
-                name = item.strip().lower()
-                if name in labels_by_name and name not in picked:
-                    picked.append(name)
-            
-            for name in picked:
-                try:
-                    gh(["issue", "edit", str(self.issue_number), "--repo", self.repo, "--add-label", labels_by_name[name]["name"]])
-                except Exception as e:
-                    print(f"Failed to add label {name}: {e}")
+        if match_duplicate:
+            response = response.replace(match_duplicate.group(0), "").strip()
 
         if match_duplicate:
             duplicate_id = match_duplicate.group(1)
-            # Remove the secret keyword so the user doesn't see it looking weird
-            response = response.replace(match_duplicate.group(0), "").strip()
-            # Append the standard GitHub duplicate phrase so GitHub's UI detects it
             response += f"\n\nDuplicate of #{duplicate_id}"
-            
             self.comment(response)
-            
+            # Skip assign/labels on duplicates per triage instructions.
             try:
-                # Close the issue explicitly as a duplicate using the GitHub API
                 gh([
                     "api",
                     "--method", "PATCH",
@@ -3146,7 +3154,21 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 ])
             except Exception as e:
                 print(f"Failed to close issue as duplicate: {e}")
+            self.delete_progress()
         else:
+            # Apply labels (non-duplicates only)
+            if match_labels:
+                labels_str = match_labels.group(1)
+                picked = []
+                for item in labels_str.split(","):
+                    name = item.strip().lower()
+                    if name in labels_by_name and name not in picked:
+                        picked.append(name)
+                for name in picked:
+                    try:
+                        gh(["issue", "edit", str(self.issue_number), "--repo", self.repo, "--add-label", labels_by_name[name]["name"]])
+                    except Exception as e:
+                        print(f"Failed to add label {name}: {e}")
             if match_assign:
                 try:
                     repo_owner = self.event.get("repository", {}).get("owner", {}).get("login", "")
@@ -3155,6 +3177,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 except Exception as e:
                     print(f"Failed to assign user: {e}")
             self.comment(response)
+            self.delete_progress()
 
     def handle_wiki(self) -> None:
         self.create_progress_comment("⏳ I am generating the Wiki documentation. Give me a moment to read the repository...")

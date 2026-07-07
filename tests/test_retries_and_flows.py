@@ -633,10 +633,12 @@ class TestTriageParsing:
         monkeypatch.setattr(obj, "create_progress_comment", lambda msg: None)
         monkeypatch.setattr(obj, "update_task_checklist", lambda *a, **kw: None)
         monkeypatch.setattr(obj, "update_progress", lambda msg: None)
+        monkeypatch.setattr(obj, "delete_progress", lambda: setattr(obj, "progress_comment_id", None))
 
         comments = []
         monkeypatch.setattr(obj, "comment", lambda body, **kw: comments.append(body))
         obj._comments = comments
+        obj.progress_comment_id = "fake-id"
         return obj
 
     def test_assigns_and_strips_marker(self, monkeypatch):
@@ -669,9 +671,11 @@ class TestTriageParsing:
         monkeypatch.setattr(obj, "create_progress_comment", lambda msg: None)
         monkeypatch.setattr(obj, "update_task_checklist", lambda *a, **kw: None)
         monkeypatch.setattr(obj, "update_progress", lambda msg: None)
+        monkeypatch.setattr(obj, "delete_progress", lambda: None)
 
         comments = []
         monkeypatch.setattr(obj, "comment", lambda body, **kw: comments.append(body))
+        obj.progress_comment_id = "fake-id"
 
         obj.handle_triage()
 
@@ -710,9 +714,11 @@ class TestTriageParsing:
         monkeypatch.setattr(obj, "create_progress_comment", lambda msg: None)
         monkeypatch.setattr(obj, "update_task_checklist", lambda *a, **kw: None)
         monkeypatch.setattr(obj, "update_progress", lambda msg: None)
+        monkeypatch.setattr(obj, "delete_progress", lambda: None)
 
         comments = []
         monkeypatch.setattr(obj, "comment", lambda body, **kw: comments.append(body))
+        obj.progress_comment_id = "fake-id"
 
         obj.handle_triage()
 

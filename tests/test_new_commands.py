@@ -82,26 +82,30 @@ class TestHandleClose:
             args = mock_gh.call_args[0][0]
             assert "state=closed" in args
             assert "state_reason=completed" in args
-            # 'completed' is a valid reason so no comment text
-            mock_comment.assert_not_called()
+            # Standard reason now posts a short confirmation comment
+            assert mock_comment.called
 
     def test_close_with_valid_reason_not_planned(self):
         obj = _make_shell()
         obj.prompt = "not_planned"
         with patch.object(agent, "gh") as mock_gh, \
-             patch.object(agent.Ella, "react"):
+             patch.object(agent.Ella, "react"), \
+             patch.object(agent.Ella, "comment") as mock_comment:
             agent.Ella._handle_close(obj)
             args = mock_gh.call_args[0][0]
             assert "state_reason=not_planned" in args
+            assert mock_comment.called
 
     def test_close_with_valid_reason_duplicate(self):
         obj = _make_shell()
         obj.prompt = "duplicate"
         with patch.object(agent, "gh") as mock_gh, \
-             patch.object(agent.Ella, "react"):
+             patch.object(agent.Ella, "react"), \
+             patch.object(agent.Ella, "comment") as mock_comment:
             agent.Ella._handle_close(obj)
             args = mock_gh.call_args[0][0]
             assert "state_reason=duplicate" in args
+            assert mock_comment.called
 
     def test_close_with_unknown_text_defaults_to_not_planned(self):
         obj = _make_shell()
@@ -118,10 +122,12 @@ class TestHandleClose:
         obj = _make_shell()
         obj.prompt = ""
         with patch.object(agent, "gh") as mock_gh, \
-             patch.object(agent.Ella, "react"):
+             patch.object(agent.Ella, "react"), \
+             patch.object(agent.Ella, "comment") as mock_comment:
             agent.Ella._handle_close(obj)
             args = mock_gh.call_args[0][0]
             assert "state_reason=not_planned" in args
+            assert mock_comment.called
 
     def test_close_with_free_text_posts_comment(self):
         obj = _make_shell()

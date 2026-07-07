@@ -276,6 +276,71 @@ class TestSuggestCommand:
         assert result == "review"
 
 
+# --- delete_progress ---
+
+
+class TestDeleteProgress:
+    def test_no_progress_id_does_nothing(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.progress_comment_id = None
+        called = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: called.append(a))
+        ella.delete_progress()
+        assert len(called) == 0
+        assert ella.progress_comment_id is None
+
+    def test_deletes_and_clears_id(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.progress_comment_id = "12345"
+        called = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: called.append(a))
+        ella.delete_progress()
+        assert len(called) == 1
+        assert "DELETE" in called[0][0]
+        assert ella.progress_comment_id is None
+
+    def test_api_failure_keeps_id(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.progress_comment_id = "999"
+        def fail(args, **kw):
+            raise Exception("API down")
+        monkeypatch.setattr(agent, "gh", fail)
+        ella.delete_progress()
+        # ID should remain so a retry is possible
+        assert ella.progress_comment_id == "999"
+
+
+# --- close with standard reason ---
+
+
+class TestCloseStandardReason:
+    def test_close_completed_posts_confirmation(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.issue_number = 42
+        ella.prompt = "completed"
+        comments = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: None)
+        monkeypatch.setattr(agent.Ella, "comment", lambda self, body, **kw: comments.append(body))
+        monkeypatch.setattr(agent.Ella, "react", lambda self, c: None)
+        agent.Ella._handle_close(ella)
+        assert any("Closed #42 as completed" in c for c in comments)
+
+    def test_close_not_planned_posts_confirmation(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.issue_number = 7
+        ella.prompt = "not_planned"
+        comments = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: None)
+        monkeypatch.setattr(agent.Ella, "comment", lambda self, body, **kw: comments.append(body))
+        monkeypatch.setattr(agent.Ella, "react", lambda self, c: None)
+        agent.Ella._handle_close(ella)
+        assert any("Closed #7 as not_planned" in c for c in comments)
+
+
 # --- _detect_queue_delay ---
 
 
