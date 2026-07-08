@@ -312,6 +312,94 @@ def command_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
+def _strip_reasoning(text: str) -> str:
+    """Remove leaked reasoning blocks that some models emit in text mode.
+
+    Many reasoning models (DeepSeek R1, Qwen3, GLM, Mistral, MiniMax, SeedOSS,
+    Hunyuan, ERNIE, etc.) wrap chain-of-thought in XML-style tags. When the
+    API does not separate reasoning from content, these tags leak into the
+    response. This strips blocks delimited by known reasoning tags and keeps
+    everything after the closing tag (the actual answer).
+
+    Also strips special-token variants used by Cohere, Mistral, Gemma, GPT-OSS,
+    and legacy Kimi that are not XML-style.
+    """
+    import re as _re
+
+    def _tag_open(tag: str) -> str:
+        return rf"<{tag}\b[^>]*>"
+
+    def _tag_close(tag: str) -> str:
+        return rf"</{tag}\s*>"
+
+    # 1. XML-style reasoning tags that WRAP chain-of-thought (strip content).
+    #    These wrap reasoning text that should be removed entirely.
+    for tag in ["think", "mm:think", "seed:think"]:
+        # Remove complete blocks: reasoning...
+        # Also absorb surrounding newlines so content doesn't have blank gaps.
+        cleaned = _re.sub(
+            rf"\n*{_tag_open(tag)}.*?{_tag_close(tag)}\n*",
+            "\n",
+            text,
+            flags=_re.DOTALL | _re.IGNORECASE,
+        )
+        if cleaned != text:
+            text = cleaned
+
+    # 2. If only an opening reasoning tag leaked (no closing tag), cut from there.
+    open_pattern = rf"<(?:think|mm:think|seed:think)\b[^>]*>"
+    m = _re.search(open_pattern, text, _re.IGNORECASE)
+    if m:
+        text = text[:m.start()].rstrip()
+
+    # 3. If only a closing reasoning tag leaked (model pre-filled reasoning
+    #    externally and only emits the closer), drop the tag itself.
+    text = _re.sub(r"</(?:think|mm:think|seed:think)\s*>", "", text, flags=_re.IGNORECASE)
+
+    # 4. Answer/response tags WRAP the actual content (Hunyuan <answer>, ERNIE <response>).
+    #    Extract the content inside, strip the tags.
+    for tag in ["answer", "response"]:
+        # Extract content from inside: <answer>real content</answer> -> real content
+        text = _re.sub(
+            rf"<{tag}\b[^>]*>(.*?)</{tag}\s*>",
+            r"\1",
+            text,
+            flags=_re.DOTALL | _re.IGNORECASE,
+        )
+        # If only opening tag leaked, remove it
+        text = _re.sub(rf"<{tag}\b[^>]*>", "", text, flags=_re.IGNORECASE)
+        # If only closing tag leaked, remove it
+        text = _re.sub(rf"</{tag}\s*>", "", text, flags=_re.IGNORECASE)
+
+    # 5. Special-token variants (non-XML):
+    #    Mistral: [THINK]...[/THINK]
+    text = _re.sub(r"\[THINK\b[^]]*\].*?\[/THINK\s*\]", "", text, flags=_re.DOTALL | _re.IGNORECASE)
+    text = _re.sub(r"\[THINK\b[^]]*\].*$", "", text, flags=_re.IGNORECASE)
+    text = _re.sub(r"\[/THINK\s*\]", "", text, flags=_re.IGNORECASE)
+
+    #    Cohere Command: <|START_THINKING|>...<|END_THINKING|>
+    text = _re.sub(r"<\|START_THINKING\|>.*?<\|END_THINKING\|>", "", text, flags=_re.DOTALL)
+    text = _re.sub(r"<\|START_THINKING\|>.*$", "", text)
+    text = _re.sub(r"<\|END_THINKING\|>", "", text)
+
+    #    Legacy Kimi (Unicode): \u25c1think\u25b7...\u25c1/think\u25b7
+    text = _re.sub(r"\u25c1think\u25b7.*?\u25c1/think\u25b7", "", text, flags=_re.DOTALL)
+    text = _re.sub(r"\u25c1think\u25b7.*$", "", text)
+    text = _re.sub(r"\u25c1/think\u25b7", "", text)
+
+    #    Gemma4 channel reasoning: <|channel>thought...<channel|>
+    text = _re.sub(r"<\|channel>thought.*?<channel\|>", "", text, flags=_re.DOTALL | _re.IGNORECASE)
+    text = _re.sub(r"<\|channel>thought.*$", "", text, flags=_re.IGNORECASE)
+    text = _re.sub(r"<channel\|>", "", text)
+
+    #    GPT-OSS analysis: <|channel|>analysis...<|end|>
+    text = _re.sub(r"<\|channel\|>analysis.*?<\|end\|>", "", text, flags=_re.DOTALL)
+    text = _re.sub(r"<\|channel\|>analysis.*$", "", text)
+    text = _re.sub(r"<\|end\|>", "", text)
+
+    return text.strip()
+
+
 def _strip_tool_call_json(text: str) -> str:
     """Remove raw tool-call syntax that some models emit in text mode.
 
@@ -320,6 +408,9 @@ def _strip_tool_call_json(text: str) -> str:
     JSON-style and XML-style tag formats.
     """
     import re as _re
+
+    # 0. Strip leaked reasoning blocks (, [THINK], <|START_THINKING|>, etc.)
+    text = _strip_reasoning(text)
 
     # 1. JSON-style: {"tool": "read_file", ...}
     cleaned = _re.sub(r'^\s*\{"tool"\s*:.*?\}\s*$', '', text, flags=_re.MULTILINE)
@@ -1394,6 +1485,11 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 return fallback
 
             text = text.strip()
+
+            # Strip leaked reasoning tags (, [THINK], <|START_THINKING|>, etc.)
+            text = _strip_reasoning(text)
+            if not text:
+                return fallback
 
             # Safety net: if the model still leaked reasoning (long output
             # with reasoning markers), fall back to the template.
