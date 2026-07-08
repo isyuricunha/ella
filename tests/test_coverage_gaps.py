@@ -56,6 +56,7 @@ def _make_ella_shell():
     obj.is_pr = False
     obj.comment_event = {}
     obj.repo_instructions = ""
+    obj.progress_comment_id = None
     return obj
 
 

@@ -171,9 +171,12 @@ class TestHandleReopen:
         with patch.object(agent, "gh") as mock_gh, \
              patch.object(agent.Ella, "react"):
             agent.Ella._handle_reopen(obj)
-            args = mock_gh.call_args[0][0]
+            # Find the PATCH API call among all gh calls
+            patch_calls = [c[0][0] for c in mock_gh.call_args_list
+                           if "--method" in c[0][0] and "PATCH" in c[0][0]]
+            assert patch_calls, "Expected a PATCH API call"
+            args = patch_calls[0]
             assert "state=open" in args
-            assert "PATCH" in args
 
     def test_reopen_with_comment(self):
         obj = _make_shell()

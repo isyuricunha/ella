@@ -404,7 +404,8 @@ class TestPostInlineReview:
         gh_calls = []
         monkeypatch.setattr(agent, "gh", lambda args, **kw: gh_calls.append(args))
         obj.post_inline_review("summary", [{"path": "a.py", "line": 1, "body": "x"}])
-        assert gh_calls == []
+        # Falls back to posting a regular comment instead of inline review.
+        assert any("issue" in c and "comment" in c for c in gh_calls)
 
     def test_skips_when_no_head_oid(self, monkeypatch):
         obj = _make_ella_shell()
@@ -412,7 +413,8 @@ class TestPostInlineReview:
         gh_calls = []
         monkeypatch.setattr(agent, "gh", lambda args, **kw: gh_calls.append(args))
         obj.post_inline_review("summary", [{"path": "a.py", "line": 1, "body": "x"}])
-        assert gh_calls == []
+        # Falls back to posting a regular comment instead of inline review.
+        assert any("issue" in c and "comment" in c for c in gh_calls)
 
     def test_skips_non_numeric_line(self, monkeypatch):
         """If the AI returns a non-numeric line value, that comment is skipped

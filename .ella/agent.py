@@ -675,18 +675,24 @@ class Ella:
                 raise RuntimeError("Repository owner not found in event")
             if user_login != repo_owner:
                 print(f"Skipping: ignoring comment from unauthorized user {user_login}. Only repo owner can use the bot.")
+                self.comment(f"Sorry @{user_login}, only the repository owner can use me. Type `/ella help` to see my commands (you can still read them!).", quote_trigger=True)
                 self.react("-1")
                 return
 
         # Friendly response to bare "/ella" (are you there? probe)
         body = str(self.comment_event.get("body", "")).strip()
         if re.match(r"^/ella\s*$", body, re.IGNORECASE):
-            self.comment("Hi! I'm here. Type `/ella help` to see what I can do.", quote_trigger=True)
+            self.comment("Hi! I'm here. Type `/ella help` to see what I can do.")
             self.react("+1")
             return
 
-        self.react("eyes")
         self.parse_command()
+
+        # Acknowledge valid commands with "eyes". Deferred until after
+        # parse_command so unknown commands get "confused" instead of
+        # double-reacting with both eyes and confused.
+        if self.mode != "unknown" and self.comment_id:
+            self.react("eyes")
 
         # Detect if this run was queued behind another and post a queue comment.
         # Only for long-running commands where the wait is meaningful - instant
@@ -794,6 +800,7 @@ class Ella:
             self.comment(f"Failed to close #{self.issue_number}. {scrub_secrets(str(exc))}", quote_trigger=True)
             self.react("confused")
             return
+        self.react("+1")
         comment_text = reason_input if reason_input and reason_input.lower() not in valid_reasons else ""
         if comment_text:
             self.comment(
@@ -805,7 +812,6 @@ class Ella:
             )
         else:
             self.comment(f"Closed #{self.issue_number} as {state_reason}.", quote_trigger=True)
-        self.react("+1")
 
     def _handle_reopen(self) -> None:
         if self.issue_number < 0:
@@ -823,6 +829,7 @@ class Ella:
             self.comment(f"Failed to reopen #{self.issue_number}. {scrub_secrets(str(exc))}", quote_trigger=True)
             self.react("confused")
             return
+        self.react("+1")
         if self.prompt:
             self.comment(
                 self.generate_message(
@@ -831,7 +838,8 @@ class Ella:
                 ),
                 quote_trigger=True
             )
-        self.react("+1")
+        else:
+            self.comment(f"Reopened #{self.issue_number}.", quote_trigger=True)
 
     def _handle_assign(self) -> None:
         if self.issue_number < 0:
@@ -906,13 +914,27 @@ class Ella:
                 self.comment(error, quote_trigger=True)
                 self.react("confused")
             return
+
+        # Show progress for potentially long read-only modes (review, plan, pr).
+        # ask is usually instant so no progress is needed.
+        progress_modes = {"review", "plan", "pr"}
+        if self.mode in progress_modes and self.comment_id:
+            self.create_progress_comment(
+                self.generate_message(
+                    f"I'm working on a {self.mode} request. Write 1 short friendly sentence saying I'll have a response shortly. No headers.",
+                    fallback=f"I'm working on your {self.mode} request and will respond shortly."
+                )
+            )
+
         try:
             response = self.handle_read_only()
         except Exception as exc:
             print(f"AI call failed during {self.mode}: {exc}")
+            self.delete_progress()
             self.comment("❌ I could not generate a response. The AI endpoint returned an error.", quote_trigger=True)
             self.react("confused")
             return
+        self.delete_progress()
         if self.mode == "review":
             try:
                 data = parse_jsonish(response)
@@ -1062,7 +1084,12 @@ class Ella:
             self.react("confused")
 
     def _handle_heal(self) -> None:
-        self.handle_heal()
+        try:
+            self.handle_heal()
+        except Exception as exc:
+            print(f"AI call failed during heal: {exc}")
+            self.comment(f"❌ I could not auto-heal the CI. The AI endpoint returned an error: {scrub_secrets(str(exc))}")
+            self.react("confused")
 
     def _handle_quote(self) -> None:
         """Generate a short quote via the small model, rewrite README, commit, push."""
@@ -1082,11 +1109,13 @@ class Ella:
             content, _ = self.ai_call(messages, MAX_TOKENS["quote"], use_small=True)
         except Exception as exc:
             print(f"AI call failed during quote: {exc}")
+            write_debug("quote-error.txt", scrub_secrets(str(exc)))
             return
 
         quote = self._sanitize_quote(content or "")
         if not quote:
             print("Quote generation produced no usable output; skipping commit.")
+            write_debug("quote-error.txt", f"Raw output:\n{content or '(empty)'}")
             return
 
         self._rewrite_readme_quote(quote)
@@ -1390,7 +1419,15 @@ I assign a user to this issue or PR.
 I add this issue or PR to a GitHub milestone by name.
 
 **Quote of the week** (automated):
-Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh quote, update the README, and commit."""
+Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh quote, update the README, and commit.
+
+**Auto-triggered modes** (no command needed):
+- Triage: I greet and label new issues on open.
+- Review: I review PRs on open/synchronize (skips drafts).
+- Auto-heal: I fix CI failures automatically via workflow_run.
+- Review-fix: When a reviewer requests changes, I attempt to fix them.
+
+Note: Only the repository owner can use slash commands."""
 
     def react(self, content: str) -> None:
         if not self.comment_id:
@@ -1425,6 +1462,12 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 lines = [f"> @{trigger_author}"] + [f"> {l}" for l in trigger_body.splitlines() if l.strip()]
                 quote = "\n".join(lines)
                 text = f"{quote}\n\n{text}"
+
+        # GitHub rejects comments over ~65KB. Truncate to stay under the limit.
+        MAX_COMMENT_BYTES = 60000
+        if len(text.encode("utf-8")) > MAX_COMMENT_BYTES:
+            text = text[:MAX_COMMENT_BYTES // 2] + "\n\n...(truncated)...\n\n" + text[-MAX_COMMENT_BYTES // 2:]
+
         gh(["issue", "comment", str(self.issue_number),
            "--repo", self.repo, "--body", scrub_secrets(text)])
 
@@ -1494,15 +1537,15 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             # Safety net: if the model still leaked reasoning (long output
             # with reasoning markers), fall back to the template.
             lines = text.splitlines()
-            if len(lines) > 6:
+            if len(lines) > 12:
                 print("generate_message: output too long, using fallback")
                 return fallback
 
             # Only strip reasoning lines if they dominate the output (more than
-            # half the lines look like leaked reasoning). This avoids truncating
-            # legitimate messages that happen to start with common words.
-            reasoning_prefixes = ("Let me", "Let's", "We are", "I need to", "I should",
-                                  "Since", "However", "But note", "Note:", "The user")
+            # half the lines look like leaked reasoning). Narrowed prefixes to
+            # avoid false-matching legitimate messages starting with "Note:" or
+            # "However" - those are valid opener words for short messages.
+            reasoning_prefixes = ("Let me", "Let's", "I need to", "I should")
             reasoning_lines = [l for l in lines if l.strip().startswith(reasoning_prefixes)]
             if reasoning_lines and len(reasoning_lines) > len(lines) // 2:
                 clean_lines = [l for l in lines if not l.strip().startswith(reasoning_prefixes)]
@@ -1592,7 +1635,10 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
 
         diff = gh(["pr", "diff", str(self.issue_number), "--repo", self.repo])
         write_debug("pr-diff.txt", diff)
-        write_debug("pr-diff-limited.txt", diff[:MAX_CONTEXT_PR_DIFF_BYTES])
+        truncated = diff[:MAX_CONTEXT_PR_DIFF_BYTES]
+        if len(diff) > MAX_CONTEXT_PR_DIFF_BYTES:
+            truncated += f"\n\n[diff truncated: {MAX_CONTEXT_PR_DIFF_BYTES // 1000}KB of {len(diff) // 1000}KB shown]"
+        write_debug("pr-diff-limited.txt", truncated)
 
     def load_issue_metadata(self) -> None:
         raw = gh([
@@ -1738,7 +1784,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 "PR info:",
                 json.dumps(pr_data, indent=2),
                 "",
-                "PR diff, possibly truncated:",
+                "PR diff:",
                 read_pr_diff_limited(),
             ])
             if comments:
@@ -1840,9 +1886,11 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
 
     def post_inline_review(self, summary: str, comments: list[dict]) -> None:
         if not self.pr_info:
+            self.comment(summary, quote_trigger=True)
             return
         commit_id = self.pr_info.get("headRefOid")
         if not commit_id:
+            self.comment(summary, quote_trigger=True)
             return
             
         payload = {
@@ -2576,7 +2624,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 "PR info:",
                 json.dumps(pr_data, indent=2),
                 "",
-                "PR diff, truncated:",
+                "PR diff:",
                 read_pr_diff_limited(),
                 "",
                 "Allowed files current content, truncated:",
@@ -3219,7 +3267,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
             content_resp, _ = self.ai_call(messages, MAX_TOKENS.get("triage", 8192), use_small=True)
         except Exception as exc:
             print(f"AI call failed during triage: {exc}")
-            self.delete_progress()
+            self.update_task_checklist("Issue Triage", [("Fetching issues", True), ("Generating response", False)], f"❌ I could not generate a triage response. The AI endpoint returned an error: {scrub_secrets(str(exc))}")
             return
         response = _strip_tool_call_json(content_resp or "")
 
@@ -3250,6 +3298,7 @@ Triggered by `workflow_dispatch` or `schedule` - not a comment. I write a fresh 
                 ])
             except Exception as e:
                 print(f"Failed to close issue as duplicate: {e}")
+                self.comment(f"⚠️ I identified this as a duplicate of #{duplicate_id} but couldn't close it automatically. Please close it manually.")
             self.delete_progress()
         else:
             # Apply labels (non-duplicates only)
