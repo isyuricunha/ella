@@ -1,6 +1,6 @@
 # Installation & Setup Guide
 
-Setting up Ella in your repository is as easy as adding a single GitHub Actions workflow file. You do not need to copy any Python scripts or internal configuration folders!
+Setting up Ella in your repository takes one workflow file and a set of secrets. The `ella-install/` folder in this repo contains a ready-to-copy workflow that references this action directly.
 
 ## Prerequisites
 
@@ -12,10 +12,17 @@ Setting up Ella in your repository is as easy as adding a single GitHub Actions 
 > [!WARNING]
 > **This specific action is hardcoded to only obey the `isyuricunha` GitHub user account.** If you want to use it, you **MUST fork** this repository, change the action reference to point to your own fork, **and** update the `isyuricunha` username in the `if:` guard inside `.github/workflows/ella-mizuki.yml` and in the `handle_triage` method of `.ella/agent.py`. Failing to do so means the bot will ignore all your comments and issues.
 
-Create a new file in your repository at `.github/workflows/ella.yml` and add the following content:
+### Quick Install
+
+1. Copy the file from `ella-install/.github/workflows/ella.yml` into your target repository at `.github/workflows/ella.yml`.
+2. Replace `isyuricunha/ella@main` in the `uses:` line with `YOUR_USERNAME/YOUR_FORK_NAME@main`.
+3. Set the repository secrets listed below.
+
+The workflow uses `github.repository_owner` instead of a hardcoded username, so once you fork and point the `uses:` to your fork, the bot responds to the repo owner automatically.
+
 
 ```yaml
-name: Ella Mizuki
+name: Ella
 # To enable weekly quote generation, add a schedule trigger to the on: block:
 #   schedule:
 #     - cron: "0 0 * * 0"
@@ -33,20 +40,30 @@ on:
     types: [completed]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: read
+
 jobs:
   ella:
     if: >
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name != 'Ella Mizuki' && github.event.workflow_run.name != 'Release') ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'YOUR_USERNAME') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name != 'Ella' && github.event.workflow_run.name != 'Release') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == github.repository_owner) ||
       (github.event_name == 'issues' && github.event.action == 'opened') ||
       (github.event_name == 'pull_request_target' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
-      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && (github.event.review.user.login == 'YOUR_USERNAME' || github.event.review.user.login == '${{ secrets.ELLA_APP_SLUG }}[bot]')) ||
+      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && (github.event.review.user.login == github.repository_owner || github.event.review.user.login == '${{ secrets.ELLA_APP_SLUG }}[bot]')) ||
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: ella-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
+      cancel-in-progress: false
+      queue: max
     steps:
       - name: Run Ella
-        # REPLACE WITH YOUR GITHUB USERNAME AND FORK NAME
         uses: YOUR_USERNAME/YOUR_FORK_NAME@main
         with:
           ella_app_client_id: ${{ secrets.ELLA_APP_CLIENT_ID }}
@@ -57,8 +74,8 @@ jobs:
           ai_small_model: ${{ secrets.ELLA_AI_SMALL_MODEL }}
           ai_small_api_key: ${{ secrets.ELLA_AI_SMALL_API_KEY }}
           ai_small_base_url: ${{ secrets.ELLA_AI_SMALL_BASE_URL }}
-          yuri_commit_name: ${{ secrets.YURI_COMMIT_NAME }}
-          yuri_commit_email: ${{ secrets.YURI_COMMIT_EMAIL }}
+          yuri_commit_name: ${{ secrets.COMMIT_NAME }}
+          yuri_commit_email: ${{ secrets.COMMIT_EMAIL }}
 ```
 
 ## 2. Set GitHub Secrets
@@ -70,7 +87,7 @@ In your target repository, go to **Settings > Secrets and variables > Actions**,
 - `ELLA_AI_API_KEY`: Your API key for the LLM.
 - `ELLA_APP_CLIENT_ID` & `ELLA_APP_PRIVATE_KEY`: GitHub App credentials.
 - `ELLA_APP_SLUG`: The slug of your GitHub App (used in the `pull_request_review` guard so the bot's own review triggers auto-fix). Set this to your App's slug (e.g., `ella-mizuki`).
-- `YURI_COMMIT_NAME` & `YURI_COMMIT_EMAIL`: Git author name and email for commit metadata.
+- `COMMIT_NAME` & `COMMIT_EMAIL`: Git author name and email for commit metadata.
 
 **Optional - Small Model** (for triage, ask, pr, plan, label, wiki, quote):
 - `ELLA_AI_SMALL_MODEL`: Smaller model name (e.g., `gpt-4o-mini`). Defaults to `ELLA_AI_MODEL` if not set.

@@ -17,7 +17,7 @@
 ## Features
 
 ### Automated
-- **Issue Triage**: Detects duplicate issues, assigns labels, assigns the repo owner (non-duplicates only), and replies. Skips bot-created issues.
+- **Issue Triage**: Detects duplicate issues, assigns labels, assigns the repo owner (non-duplicates only), and replies. Skips bot-created issues. The progress checklist is deleted after triage - only the greeting remains.
 - **PR Review**: Analyzes diffs for bugs, security issues, and missing tests. Runs automatically when a PR is opened or synchronized (skips drafts). When a reviewer requests changes, Ella automatically attempts to fix the feedback and commits to the PR branch.
 - **Auto-Heal**: When a CI workflow fails, downloads the logs, attempts a fix, and commits it to the PR branch.
 - **Quote of the Week**: Generates a fresh, AI-written quote in the profile README via `workflow_dispatch` or `schedule` events.
@@ -25,9 +25,10 @@
 ### Slash Commands
 
 **General** (issues and PRs):
+- `/ella` - Friendly "I'm here" probe with a +1 reaction.
 - `/ella help` - Lists available commands.
 - `/ella ask <question>` - Answers questions based on issue/PR context (no code search).
-- `/ella close [reason]` - Closes the current issue or PR with an optional reason.
+- `/ella close [reason]` - Closes the current issue or PR. Reason can be `completed`, `not_planned`, or `duplicate`. Posts a confirmation comment. Any other text becomes a closing comment (defaults to `not_planned`).
 - `/ella reopen [comment]` - Reopens a closed issue or PR with an optional comment.
 - `/ella assign @user` - Assigns a user to the current issue or PR.
 - `/ella milestone "name"` - Assigns the issue or PR to a GitHub milestone.
@@ -44,6 +45,13 @@
 - `/ella plan <request>` - Writes an implementation plan without modifying code.
 - `/ella solve <request>` - Creates a new branch, attempts a fix, and opens a new PR.
 
+### UX Touches
+- **Quote replies**: Every bot reply quotes the triggering comment for context.
+- **Command suggestions**: Typing a command wrong (e.g., `/ella asl`) suggests the closest match.
+- **Reactions**: `eyes` (seen), `+1` (done), `confused` (error/unknown), `-1` (permission denied).
+- **Queue feedback**: When a long-running command is queued behind another run, Ella posts a heads-up comment with the wait time.
+- **Time remaining**: The progress checklist shows elapsed and remaining time.
+
 ---
 
 ## Getting Started
@@ -54,11 +62,14 @@
 If you want to use Ella in your own projects, you can use her as a **GitHub Action**. You do not need to copy any script files to your repository.
 
 1. **Fork** this repository to your own account.
-2. Create a workflow file in your target repository, e.g., `.github/workflows/ella.yml`.
-3. Use your fork's action and pass your credentials:
+2. Copy the workflow file from `ella-install/.github/workflows/ella.yml` into your target repository at `.github/workflows/ella.yml`.
+3. Replace `isyuricunha/ella@main` with `YOUR_USERNAME/YOUR_FORK_NAME@main` in the `uses:` line.
+4. Set the repository secrets (see the [Setup Guide](docs/setup.md) for the full list).
+
+The workflow file:
 
 ```yaml
-name: Ella Mizuki
+name: Ella
 # To enable weekly quote generation, add a schedule trigger to the on: block:
 #   schedule:
 #     - cron: "0 0 * * 0"
@@ -76,35 +87,45 @@ on:
     types: [completed]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: read
+
 jobs:
   ella:
     if: >
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name != 'Ella Mizuki' && github.event.workflow_run.name != 'Release') ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == 'YOUR_USERNAME') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name != 'Ella' && github.event.workflow_run.name != 'Release') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/ella') && github.event.comment.user.login == github.repository_owner) ||
       (github.event_name == 'issues' && github.event.action == 'opened') ||
       (github.event_name == 'pull_request_target' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
-      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && (github.event.review.user.login == 'YOUR_USERNAME' || github.event.review.user.login == '${{ secrets.ELLA_APP_SLUG }}[bot]')) ||
+      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' && (github.event.review.user.login == github.repository_owner || github.event.review.user.login == '${{ secrets.ELLA_APP_SLUG }}[bot]')) ||
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: ella-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
+      cancel-in-progress: false
+      queue: max
     steps:
-      # REPLACE WITH YOUR GITHUB USERNAME AND FORK NAME
-      - uses: YOUR_USERNAME/YOUR_FORK_NAME@main
+      - name: Run Ella
+        uses: YOUR_USERNAME/YOUR_FORK_NAME@main
         with:
           ella_app_client_id: ${{ secrets.ELLA_APP_CLIENT_ID }}
           ella_app_private_key: ${{ secrets.ELLA_APP_PRIVATE_KEY }}
           ai_base_url: ${{ secrets.ELLA_AI_BASE_URL }}
           ai_model: ${{ secrets.ELLA_AI_MODEL }}
           ai_api_key: ${{ secrets.ELLA_AI_API_KEY }}
-          # Optional - small model and commit identity:
           ai_small_model: ${{ secrets.ELLA_AI_SMALL_MODEL }}
           ai_small_api_key: ${{ secrets.ELLA_AI_SMALL_API_KEY }}
           ai_small_base_url: ${{ secrets.ELLA_AI_SMALL_BASE_URL }}
-          yuri_commit_name: ${{ secrets.YURI_COMMIT_NAME }}
-          yuri_commit_email: ${{ secrets.YURI_COMMIT_EMAIL }}
+          yuri_commit_name: ${{ secrets.COMMIT_NAME }}
+          yuri_commit_email: ${{ secrets.COMMIT_EMAIL }}
 ```
 
-4. **(Optional)** To customize her persona for your specific repository, create an `ELLA.md`, `AGENTS.md`, `.github/copilot-instructions.md`, or `.github/ella-instructions.md` file in the root of your repository with your extra instructions.
+5. **(Optional)** To customize her persona for your specific repository, create an `ELLA.md`, `AGENTS.md`, `.github/copilot-instructions.md`, or `.github/ella-instructions.md` file in the root of your repository with your extra instructions. Ella reads these from the target repo and merges them with her core identity.
 
 ---
 
