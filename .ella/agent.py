@@ -161,6 +161,24 @@ def scrub_secrets(text: str) -> str:
         secret = os.environ.get(key)
         if secret and len(secret) >= 3:
             text = text.replace(secret, "***REDACTED***")
+            # handle_wiki authenticates git over HTTPS with a
+            # `git -c http.https://github.com/.extraHeader=
+            # Authorization: Basic <b64>` arg, where
+            # <b64> = base64("x-access-token:" + raw token). When that git
+            # command fails, the CommandError carries the full command
+            # (header included) and is surfaced through scrub_secrets into a
+            # public comment. The b64 payload contains neither the raw token
+            # text nor a ghp_/ghs_ pattern, so redact it explicitly --
+            # otherwise it decodes straight back to the token.
+            if key in ("GH_TOKEN", "GITHUB_TOKEN"):
+                try:
+                    encoded = base64.b64encode(
+                        f"x-access-token:{secret}".encode()
+                    ).decode("ascii")
+                except Exception:
+                    encoded = ""
+                if encoded and len(encoded) >= 6:
+                    text = text.replace(encoded, "***REDACTED***")
 
     # Also redact generic GitHub tokens pattern: ghp_, ghs_, ghu_, ghr_
     text = re.sub(r'gh[psur]_[a-zA-Z0-9]{36}', '***REDACTED***', text)
