@@ -4,6 +4,7 @@ These tests exercise the standalone helper functions and the Ella
 methods that do not require a live GitHub environment.
 """
 
+import base64
 import importlib.util
 import json
 import os
@@ -110,6 +111,52 @@ class TestScrubSecrets:
 
     def test_non_string_input(self):
         assert agent.scrub_secrets(123) == 123
+
+    def test_redacts_base64_encoded_git_auth_header(self, monkeypatch):
+        """handle_wiki authenticates git via an `Authorization: Basic <b64>`
+        extraHeader built from base64("x-access-token:" + token). When the wiki
+        push fails, that CommandError carries the full git command (including
+        the header) and is posted as a public comment through scrub_secrets.
+        The b64 form does not contain the raw token text, so it must be scrubbed
+        explicitly or it can be decoded back to the token."""
+        token = "ghp_" + "a" * 36
+        monkeypatch.setenv("GH_TOKEN", token)
+        encoded = base64.b64encode(
+            f"x-access-token:{token}".encode()
+        ).decode("ascii")
+        auth_header = f"Authorization: Basic {encoded}"
+        text = (
+            "Command failed: git -c "
+            "http.https://github.com/.extraHeader="
+            f"{auth_header} -C /tmp/wiki push origin master"
+        )
+        result = agent.scrub_secrets(text)
+        assert encoded not in result, "base64-encoded GH_TOKEN leaked"
+        assert "REDACTED" in result
+
+    def test_redacts_base64_encoded_header_github_token(self, monkeypatch):
+        """GITHUB_TOKEN must also be redacted in its base64 auth-header form."""
+        token = "ghs_" + "b" * 36
+        monkeypatch.setenv("GITHUB_TOKEN", token)
+        encoded = base64.b64encode(
+            f"x-access-token:{token}".encode()
+        ).decode("ascii")
+        result = agent.scrub_secrets(f"Authorization: Basic {encoded}")
+        assert encoded not in result, "base64-encoded GITHUB_TOKEN leaked"
+        assert "REDACTED" in result
+
+    def test_base64_redaction_preserves_raw_token_redaction(self, monkeypatch):
+        """Both the raw token and its base64 auth-header form should be redacted
+        in a single scrub_secrets pass, so an error message containing both is
+        fully scrubbed."""
+        token = "ghp_" + "c" * 36
+        monkeypatch.setenv("GH_TOKEN", token)
+        encoded = base64.b64encode(
+            f"x-access-token:{token}".encode()
+        ).decode("ascii")
+        result = agent.scrub_secrets(f"raw={token} b64={encoded}")
+        assert token not in result
+        assert encoded not in result
 
 
 # --- safe_rel_path ---
