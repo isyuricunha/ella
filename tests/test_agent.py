@@ -238,6 +238,82 @@ class TestCommentQuoteTrigger:
         assert "> \n" not in body_arg and ">\n" not in body_arg
 
 
+class TestCommentByteLimit:
+    """comment() must guarantee the posted body stays under the GitHub byte limit.
+
+    The truncation computes its budget in *bytes* (GitHub rejects comments over
+    ~65KB), so it must operate on bytes, not characters: a multibyte payload
+    sliced by character count can still exceed the limit (and the separator
+    bytes must be budgeted too). Regression test for a byte-vs-char mismatch.
+    """
+
+    @staticmethod
+    def _posted_body(calls):
+        # comment() calls gh(["issue","comment",num,"--repo",repo,"--body",body]);
+        # monkeypatch appends the positional args tuple. Locate body robustly.
+        args = calls[0][0]
+        return args[args.index("--body") + 1]
+
+    def test_emoji_payload_under_limit(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 0
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        body = "\U0001f600" * 16000  # 64 000 bytes of emoji (4 bytes/char)
+        agent.Ella.comment(ella, body)
+        posted = self._posted_body(calls)
+        assert len(posted.encode("utf-8")) <= 60000
+
+    def test_two_byte_payload_under_limit(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 0
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        body = "é" * 31000  # 62 000 bytes (2 bytes/char)
+        agent.Ella.comment(ella, body)
+        posted = self._posted_body(calls)
+        assert len(posted.encode("utf-8")) <= 60000
+
+    def test_three_byte_payload_under_limit(self, monkeypatch):
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 0
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        body = "你" * 21000  # 63 000 bytes (3 bytes/char)
+        agent.Ella.comment(ella, body)
+        posted = self._posted_body(calls)
+        assert len(posted.encode("utf-8")) <= 60000
+
+    def test_ascii_just_over_limit_under_limit(self, monkeypatch):
+        # Even pure ASCII of 60 001 bytes must end up under the limit once the
+        # separator is budgeted.
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 0
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        body = "A" * 60001
+        agent.Ella.comment(ella, body)
+        posted = self._posted_body(calls)
+        assert len(posted.encode("utf-8")) <= 60000
+
+    def test_short_payload_untouched(self, monkeypatch):
+        # Payloads under the limit must pass through unchanged.
+        ella = _make_ella_shell()
+        ella.repo = "isyuricunha/ella"
+        ella.comment_id = 0
+        calls = []
+        monkeypatch.setattr(agent, "gh", lambda *a, **kw: calls.append(a))
+        body = "Short reply with accént and emoji \U0001f600."
+        agent.Ella.comment(ella, body)
+        posted = self._posted_body(calls)
+        assert len(posted.encode("utf-8")) <= 60000
+        assert posted == body
+
+
 # --- _suggest_command ---
 
 

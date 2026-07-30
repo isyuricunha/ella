@@ -1464,9 +1464,19 @@ Note: Only the repository owner can use slash commands."""
                 text = f"{quote}\n\n{text}"
 
         # GitHub rejects comments over ~65KB. Truncate to stay under the limit.
+        # Operate on bytes (not characters) and reserve room for the separator
+        # so a multibyte payload (emoji, accented text, CJK) is guaranteed to
+        # come in under the byte cap after truncation. Slicing characters by
+        # MAX//2 left multibyte comments at ~2x the limit.
         MAX_COMMENT_BYTES = 60000
-        if len(text.encode("utf-8")) > MAX_COMMENT_BYTES:
-            text = text[:MAX_COMMENT_BYTES // 2] + "\n\n...(truncated)...\n\n" + text[-MAX_COMMENT_BYTES // 2:]
+        data = text.encode("utf-8")
+        if len(data) > MAX_COMMENT_BYTES:
+            sep = "\n\n...(truncated)...\n\n"
+            sep_bytes = len(sep.encode("utf-8"))
+            side = (MAX_COMMENT_BYTES - sep_bytes) // 2
+            head = data[:side].decode("utf-8", "ignore")
+            tail = data[-side:].decode("utf-8", "ignore") if side > 0 else ""
+            text = head + sep + tail
 
         gh(["issue", "comment", str(self.issue_number),
            "--repo", self.repo, "--body", scrub_secrets(text)])
