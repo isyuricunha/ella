@@ -162,6 +162,44 @@ class TestRetryCmd:
             agent._retry_cmd(fake_fn, ["gh", "api"], check=True)
         assert len(calls) == 5
 
+    def test_retry_print_does_not_leak_base64_git_token(self, monkeypatch, capsys):
+        """handle_wiki builds a git command containing a base64 auth header
+        (`Authorization: Basic base64("x-access-token:*** + token)`) as the
+        third argument.  When that command fails with a transient error
+        _retry_cmd prints ``args[:4]`` before sleeping, which emits the b64
+        payload to stdout (the Actions log).  mask_secrets only registers the
+        raw token value via `::add-mask::`, so the b64 form (which decodes
+        straight back to the token) goes unmasked.  The retry print must scrub
+        secret identifiers from the joined args before writing them out."""
+        import base64 as _b64
+
+        token = "ghp_" + "z" * 36
+        monkeypatch.setattr(agent.time, "sleep", lambda s: None)
+        monkeypatch.setenv("GH_TOKEN", token)
+
+        encoded = _b64.b64encode(
+            f"x-access-token:{token}".encode()
+        ).decode("ascii")
+
+        wiki_args = [
+            "git",
+            "-c",
+            f"http.https://github.com/.extraHeader=Authorization: Basic {encoded}",
+            "-C", "/tmp/wiki",
+            "push", "origin", "master",
+        ]
+
+        def fake_fn(args, *, check, **kwargs):
+            raise agent.CommandError("server error 503")
+
+        with pytest.raises(agent.CommandError, match="server error"):
+            agent._retry_cmd(fake_fn, wiki_args, check=True)
+
+        captured = capsys.readouterr()
+        assert encoded not in captured.out, (
+            "base64-encoded GH_TOKEN leaked by retry print to stdout"
+        )
+
 
 # --- _retry_ai / _reset_ai_retry ---
 
