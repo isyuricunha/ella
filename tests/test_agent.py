@@ -706,6 +706,16 @@ class TestInferCommitType:
         result = ella.infer_commit_type(["src/app.tsx", "README.md"])
         assert result == ("fix", None)
 
+    def test_root_level_python_test_file(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["test_foo.py"])
+        assert result == ("test", None)
+
+    def test_root_level_dot_test_py_file(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["foo.test.py"])
+        assert result == ("test", None)
+
     def test_empty_list(self):
         ella = _make_ella_shell()
         assert ella.infer_commit_type([]) == ("chore", None)
