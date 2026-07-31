@@ -290,7 +290,11 @@ def _retry_cmd(fn, args: list[str], *, check: bool, **kwargs):
                 raise
             if attempt < max_retries:
                 delay = base_delay * (2 ** (attempt - 1))
-                print(f"Transient command failure (attempt {attempt}/{max_retries}), retrying in {delay:.0f}s: {' '.join(args[:4])}")
+                # Scrub secrets before printing; wiki git commands carry a
+                # base64 auth header that decodes straight to the GitHub
+                # token, and mask_secrets only registers the raw value.
+                safe_cmd = scrub_secrets(" ".join(args[:4]))
+                print(f"Transient command failure (attempt {attempt}/{max_retries}), retrying in {delay:.0f}s: {safe_cmd}")
                 time.sleep(delay)
         except subprocess.TimeoutExpired:
             raise
