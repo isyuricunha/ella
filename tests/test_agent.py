@@ -577,6 +577,27 @@ class TestIsIgnored:
     def test_default_ignore_root_level_target(self):
         assert agent.is_ignored("target/debug/binary", agent.DEFAULT_IGNORE) is True
 
+    def test_default_ignore_root_level_min_js(self):
+        assert agent.is_ignored("jquery.min.js", agent.DEFAULT_IGNORE) is True
+
+    def test_default_ignore_root_level_source_map(self):
+        assert agent.is_ignored("app.min.js.map", agent.DEFAULT_IGNORE) is True
+
+    def test_default_ignore_root_level_generated(self):
+        assert agent.is_ignored("schema.generated.ts", agent.DEFAULT_IGNORE) is True
+
+    def test_double_star_file_pattern_matches_nested(self):
+        """Patterns like **/*.ext must still match nested paths."""
+        assert agent.is_ignored("src/app.min.js", agent.DEFAULT_IGNORE) is True
+        assert agent.is_ignored("lib/schema.generated.py", agent.DEFAULT_IGNORE) is True
+
+    def test_double_star_file_pattern_matches_root(self):
+        """Patterns like **/*.ext must match root-level files too,
+        not only files nested inside a directory."""
+        patterns = ["**/*.min.js"]
+        assert agent.is_ignored("app.min.js", patterns) is True
+        assert agent.is_ignored("src/app.min.js", patterns) is True
+
 
 # --- parse_jsonish ---
 
