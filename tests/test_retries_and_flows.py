@@ -201,6 +201,94 @@ class TestRetryCmd:
         )
 
 
+# --- run_cmd timeout secret scrubbing ---
+
+
+class TestRunCmdTimeoutScrub:
+    """run_cmd re-raised subprocess.TimeoutExpired unchanged.  A TimeoutExpired
+    carries ``cmd`` (the full raw args list) and any captured ``output`` /
+    ``stderr`` as plain strings.  For wiki git commands ``cmd`` holds the
+    base64 ``Authorization: Basic <b64>`` extra-header built from the GitHub
+    token; that base64 decodes straight back to the token.  The non-zero-exit
+    path scrubs its CommandError before raising, but the timeout path did not,
+    so a wiki git timeout surfaced the base64 via ``str(e)`` (for example
+    handle_wiki's ``print(f"Wiki error: {e}")``) into the Actions log.  run_cmd
+    must scrub the timeout payload at the source, matching the CommandError
+    scrubbing already applied at the non-zero-exit path."""
+
+    _wiki_args = [
+        "git",
+        "-c",
+        "http.https://github.com/.extraHeader=Authorization: Basic ENCODED",
+        "-C", "/tmp/wiki",
+        "push", "origin", "master",
+    ]
+
+    def _wiki_args_for(self, encoded):
+        args = list(self._wiki_args)
+        args[2] = f"http.https://github.com/.extraHeader=Authorization: Basic {encoded}"
+        return args
+
+    def test_timeout_scrubs_base64_auth_header_in_cmd(self, monkeypatch):
+        import base64 as _b64
+
+        token = "ghp_" + "z" * 36
+        monkeypatch.setenv("GH_TOKEN", token)
+
+        encoded = _b64.b64encode(
+            f"x-access-token:{token}".encode("ascii")
+        ).decode("ascii")
+        wiki_args = self._wiki_args_for(encoded)
+
+        def fake_run(run_args, **kwargs):
+            raise subprocess.TimeoutExpired(
+                cmd=run_args, timeout=900, output="", stderr=None
+            )
+
+        monkeypatch.setattr(agent.subprocess, "run", fake_run)
+
+        with pytest.raises(subprocess.TimeoutExpired) as exc_info:
+            agent.run_cmd(wiki_args, check=True, capture=True)
+
+        assert encoded not in str(exc_info.value), (
+            "base64-encoded GH_TOKEN leaked by run_cmd timeout via str(e)"
+        )
+
+    def test_timeout_scrubs_base64_auth_header_in_output(self, monkeypatch):
+        """Captured partial output of a timed-out git command may echo the
+        base64 header (git prints the failing command on some failures), so
+        the scrubbed timeout must also redact ``output`` rather than only the
+        string rendering of ``cmd``."""
+        import base64 as _b64
+
+        token = "ghp_" + "a" * 36
+        monkeypatch.setenv("GH_TOKEN", token)
+
+        encoded = _b64.b64encode(
+            f"x-access-token:{token}".encode("ascii")
+        ).decode("ascii")
+        wiki_args = self._wiki_args_for(encoded)
+        captured_output = f"git push failed near Authorization: Basic {encoded}"
+
+        def fake_run(run_args, **kwargs):
+            raise subprocess.TimeoutExpired(
+                cmd=run_args, timeout=900, output=captured_output, stderr=None
+            )
+
+        monkeypatch.setattr(agent.subprocess, "run", fake_run)
+
+        with pytest.raises(subprocess.TimeoutExpired) as exc_info:
+            agent.run_cmd(wiki_args, check=True, capture=True)
+
+        out = exc_info.value.output or ""
+        assert encoded not in out, (
+            "base64-encoded GH_TOKEN leaked by run_cmd timeout captured output"
+        )
+        assert encoded not in str(exc_info.value), (
+            "base64-encoded GH_TOKEN leaked by run_cmd timeout via str(e)"
+        )
+
+
 # --- _retry_ai / _reset_ai_retry ---
 
 

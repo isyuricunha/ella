@@ -228,19 +228,45 @@ def run_cmd(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     cwd = ROOT if cwd is None else cwd
-    if capture:
-        result = subprocess.run(
-            args,
-            cwd=cwd,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=timeout,
-            env=env,
-        )
-    else:
-        result = subprocess.run(args, cwd=cwd, text=True,
-                                timeout=timeout, env=env)
+    try:
+        if capture:
+            result = subprocess.run(
+                args,
+                cwd=cwd,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=timeout,
+                env=env,
+            )
+        else:
+            result = subprocess.run(args, cwd=cwd, text=True,
+                                    timeout=timeout, env=env)
+    except subprocess.TimeoutExpired as exc:
+        # Scrub the timeout payload at the source, mirroring the
+        # CommandError scrubbing at the non-zero-exit path below.
+        # subprocess.TimeoutExpired carries the raw ``cmd`` (the full args
+        # list) and any captured ``output`` / ``stderr``; for wiki git
+        # commands ``cmd`` holds the base64 Authorization extra-header that
+        # decodes straight back to the GitHub token.  Without this scrub a
+        # wiki git timeout surfaces the base64 via ``str(e)`` (e.g.
+        # handle_wiki's ``print(f"Wiki error: {e}")``) into the Actions log.
+        # ``from None`` suppresses the chained original exception so its
+        # leaky repr never reaches the traceback either.  Coerce output and
+        # stderr to str so a non-string (e.g. bytes) payload is redacted
+        # rather than passed through ``scrub_secrets`` unchanged.
+        if isinstance(exc.cmd, list):
+            scrubbed_cmd = [scrub_secrets(str(c)) for c in exc.cmd]
+        else:
+            scrubbed_cmd = scrub_secrets(str(exc.cmd))
+        out = exc.output if isinstance(exc.output, str) else ""
+        err = exc.stderr if isinstance(exc.stderr, str) else ""
+        raise subprocess.TimeoutExpired(
+            scrubbed_cmd,
+            exc.timeout,
+            output=scrub_secrets(out),
+            stderr=scrub_secrets(err),
+        ) from None
 
     if check and result.returncode != 0:
         output = result.stdout if capture else ""
