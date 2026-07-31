@@ -564,7 +564,7 @@ def is_ignored(path: str, patterns: list[str]) -> bool:
             continue
         if fnmatch.fnmatch(normalized, p):
             return True
-        # pattern ending with /** matches everything inside that directory
+        # Pattern ending with /** matches everything inside that directory.
         if p.endswith("/**"):
             dir_prefix = p[:-3]
             # Strip a leading "**/" so patterns like "**/node_modules/**"
@@ -574,6 +574,17 @@ def is_ignored(path: str, patterns: list[str]) -> bool:
                 dir_prefix = dir_prefix[3:]
             if normalized == dir_prefix or normalized.startswith(
                     dir_prefix + "/"):
+                return True
+        # Pattern starting with "**/" but NOT ending with /**" (e.g.
+        # "**/*.min.js", "**/*.map") is a file-glob pattern. Python's
+        # fnmatch treats ** as two ordinary * segments, so "**/*.min.js"
+        # requires at least one directory separator in the path and never
+        # matches a root-level file (e.g. "jquery.min.js"). stripping the
+        # leading "**/" lets the remainder match the basename directly,
+        # mirroring the root-level fix for the dir/** case above.
+        if p.startswith("**/") and not p.endswith("/**"):
+            stripped = p[3:]
+            if fnmatch.fnmatch(name, stripped) or fnmatch.fnmatch(normalized, stripped):
                 return True
         # bare filename pattern (no /) matches the basename of any file
         if "/" not in p and fnmatch.fnmatch(name, p):
