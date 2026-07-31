@@ -553,6 +553,30 @@ class TestIsIgnored:
         assert agent.is_ignored("pkg/vendor/lib.go", patterns) is True
         assert agent.is_ignored("src/main.go", patterns) is False
 
+    def test_double_star_root_level_dir(self):
+        """Patterns like **/dir/** must also match dir/ at the repository root,
+        not just when nested under a parent directory."""
+        patterns = ["**/vendor/**"]
+        assert agent.is_ignored("vendor/lib.go", patterns) is True
+        assert agent.is_ignored("vendor/sub/lib.go", patterns) is True
+
+    def test_default_ignore_root_level_node_modules(self):
+        assert agent.is_ignored(
+            "node_modules/react/index.js", agent.DEFAULT_IGNORE) is True
+
+    def test_default_ignore_root_level_dist(self):
+        assert agent.is_ignored("dist/main.js", agent.DEFAULT_IGNORE) is True
+
+    def test_default_ignore_root_level_build(self):
+        assert agent.is_ignored("build/output.js", agent.DEFAULT_IGNORE) is True
+
+    def test_default_ignore_root_level_pycache(self):
+        assert agent.is_ignored(
+            "__pycache__/module.cpython-311.pyc", agent.DEFAULT_IGNORE) is True
+
+    def test_default_ignore_root_level_target(self):
+        assert agent.is_ignored("target/debug/binary", agent.DEFAULT_IGNORE) is True
+
 
 # --- parse_jsonish ---
 

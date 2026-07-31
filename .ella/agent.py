@@ -565,8 +565,16 @@ def is_ignored(path: str, patterns: list[str]) -> bool:
         if fnmatch.fnmatch(normalized, p):
             return True
         # pattern ending with /** matches everything inside that directory
-        if p.endswith("/**") and normalized.startswith(p[:-3]):
-            return True
+        if p.endswith("/**"):
+            dir_prefix = p[:-3]
+            # Strip a leading "**/" so patterns like "**/node_modules/**"
+            # also match paths at the repository root (e.g.
+            # "node_modules/react/index.js"), not only nested ones.
+            if dir_prefix.startswith("**/"):
+                dir_prefix = dir_prefix[3:]
+            if normalized == dir_prefix or normalized.startswith(
+                    dir_prefix + "/"):
+                return True
         # bare filename pattern (no /) matches the basename of any file
         if "/" not in p and fnmatch.fnmatch(name, p):
             return True
