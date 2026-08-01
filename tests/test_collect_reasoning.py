@@ -135,3 +135,50 @@ class TestCollectReasoning:
         assert reasoning_parts == ["I need to read a file"]
         assert len(active_tool_calls) == 1
         assert active_tool_calls["call_1"]["function"]["name"] == "read_file"
+
+    def test_tool_name_arrives_separately_from_id(self):
+        """Some providers send the tool-call id in the first chunk but the
+        function name in a subsequent chunk. The name must be stored."""
+        chunks = [
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "id": "call_abc",
+                                    "index": 0,
+                                    "type": "function",
+                                    "function": {"arguments": ""},
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "function": {"name": "read_file", "arguments": '{"filepath": "test.py"}'},
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+        ]
+        content_parts: list[str] = []
+        reasoning_parts: list[str] = []
+        active_tool_calls: dict[str, dict] = {}
+        index_to_id: dict[int, str] = {}
+        for chunk in chunks:
+            Ella.collect_ai_choices(
+                chunk, content_parts, reasoning_parts, active_tool_calls, index_to_id
+            )
+        assert len(active_tool_calls) == 1
+        assert active_tool_calls["call_abc"]["function"]["name"] == "read_file"
+        assert active_tool_calls["call_abc"]["function"]["arguments"] == '{"filepath": "test.py"}'

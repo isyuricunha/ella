@@ -2391,6 +2391,14 @@ Note: Only the repository owner can use slash commands."""
                     }
                 
                 fn = tc.get("function", {})
+                # Update the function name if this chunk carries one. Some
+                # OpenAI-compatible providers send the id in the first chunk
+                # but the function name in a subsequent chunk; without this
+                # update the name stays None and execute_tool reports
+                # "Unknown tool None".
+                fn_name = fn.get("name")
+                if fn_name and active_tool_calls[current_id]["function"]["name"] in (None, ""):
+                    active_tool_calls[current_id]["function"]["name"] = fn_name
                 args = fn.get("arguments", "")
                 if args:
                     active_tool_calls[current_id]["function"]["arguments"] += args
