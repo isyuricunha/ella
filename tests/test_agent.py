@@ -736,6 +736,62 @@ class TestInferCommitType:
         result = ella.infer_commit_type(["test_component.tsx"])
         assert result == ("test", None)
 
+    def test_dot_test_jsx(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.test.jsx"]) == ("test", None)
+
+    def test_dot_spec_jsx(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.spec.jsx"]) == ("test", None)
+
+    def test_dot_test_mjs(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.test.mjs"]) == ("test", None)
+
+    def test_dot_spec_mjs(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.spec.mjs"]) == ("test", None)
+
+    def test_dot_test_cjs(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.test.cjs"]) == ("test", None)
+
+    def test_dot_spec_cjs(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.spec.cjs"]) == ("test", None)
+
+    def test_dot_test_mts(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.test.mts"]) == ("test", None)
+
+    def test_dot_spec_mts(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.spec.mts"]) == ("test", None)
+
+    def test_dot_test_cts(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.test.cts"]) == ("test", None)
+
+    def test_dot_spec_cts(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.spec.cts"]) == ("test", None)
+
+    def test_root_level_test_prefix_mjs(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test_foo.mjs"]) == ("test", None)
+
+    def test_root_level_test_prefix_cjs(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test_foo.cjs"]) == ("test", None)
+
+    def test_root_level_test_prefix_mts(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test_foo.mts"]) == ("test", None)
+
+    def test_root_level_test_prefix_cts(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test_foo.cts"]) == ("test", None)
+
     def test_empty_list(self):
         ella = _make_ella_shell()
         assert ella.infer_commit_type([]) == ("chore", None)
