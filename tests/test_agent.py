@@ -1108,6 +1108,51 @@ class TestInferCommitType:
         ella = _make_ella_shell()
         assert ella.infer_commit_type(["t/foo.t"]) == ("test", None)
 
+    # V convention: *_test.v suffix at repository root.
+    def test_v_test_file_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.v"]) == ("test", None)
+
+    # Clojure convention: *_test.clj suffix at repository root.
+    def test_clojure_test_file_suffix_clj(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.clj"]) == ("test", None)
+
+    # ClojureScript convention: *_test.cljs suffix at repository root.
+    def test_clojurescript_test_file_suffix_cljs(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.cljs"]) == ("test", None)
+
+    # Clojure CLR convention: *_test.cljc suffix at repository root.
+    def test_clojure_cljc_test_file_suffix_cljc(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.cljc"]) == ("test", None)
+
+    # Important unaffected boundaries for V and Clojure.
+    def test_v_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.v"]) == ("fix", None)
+
+    def test_clojure_non_test_file_clj(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.clj"]) == ("fix", None)
+
+    def test_clojurescript_non_test_file_cljs(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.cljs"]) == ("fix", None)
+
+    def test_clojure_cljc_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.cljc"]) == ("fix", None)
+
+    def test_v_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["tests/foo_test.v"]) == ("test", None)
+
+    def test_clojure_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test/foo_test.clj"]) == ("test", None)
+
 
 # --- blocked command guard ---
 
