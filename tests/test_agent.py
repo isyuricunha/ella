@@ -796,6 +796,62 @@ class TestInferCommitType:
         ella = _make_ella_shell()
         assert ella.infer_commit_type([]) == ("chore", None)
 
+    # Go test files: *_test.go convention used with `go test ./...`
+    def test_go_test_file_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.go"]) == ("test", None)
+
+    def test_go_test_file_main_test(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["main_test.go"]) == ("test", None)
+
+    # Java defaults: Test*, *Test, *Tests, and *TestCase.
+    def test_java_test_file_suffix_test(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTest.java"]) == ("test", None)
+
+    def test_java_test_file_prefix_test(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["TestFoo.java"]) == ("test", None)
+
+    def test_java_test_file_suffix_tests(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTests.java"]) == ("test", None)
+
+    def test_java_test_file_suffix_test_case(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTestCase.java"]) == ("test", None)
+
+    # C# conventions: Test*, *Test, and *Tests.
+    def test_csharp_test_file_suffix_test(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTest.cs"]) == ("test", None)
+
+    def test_csharp_test_file_prefix_test(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["TestFoo.cs"]) == ("test", None)
+
+    def test_csharp_test_file_suffix_tests(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTests.cs"]) == ("test", None)
+
+    # Important unaffected boundaries.
+    def test_go_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.go"]) == ("fix", None)
+
+    def test_java_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["Foo.java"]) == ("fix", None)
+
+    def test_csharp_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["Foo.cs"]) == ("fix", None)
+
+    def test_go_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["tests/foo_test.go"]) == ("test", None)
+
 
 # --- blocked command guard ---
 
