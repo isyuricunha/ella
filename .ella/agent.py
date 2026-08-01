@@ -3044,6 +3044,12 @@ Note: Only the repository owner can use slash commands."""
             or (path.endswith(".dart") and Path(path).name.endswith("_test.dart"))
             or (path.endswith(".scala") and Path(path).name.endswith(("Test.scala", "Tests.scala", "Spec.scala", "Specs.scala")))
             or (path.endswith(".exs") and Path(path).name.endswith("_test.exs"))
+            or (path.endswith(".lua") and (Path(path).name.endswith("_spec.lua") or Path(path).name.startswith("test_")))
+            or path.endswith(".t")
+            or (path.endswith(".erl") and Path(path).name.endswith("_SUITE.erl"))
+            or (path.endswith(".hs") and Path(path).name.endswith("Spec.hs"))
+            or (path.endswith(".groovy") and (Path(path).name.endswith(("Spec.groovy", "Test.groovy"))))
+            or (path.endswith(".cr") and Path(path).name.endswith("_spec.cr"))
             for path in normalized
         ):
             return "test", None

@@ -1041,6 +1041,73 @@ class TestInferCommitType:
         ella = _make_ella_shell()
         assert ella.infer_commit_type(["tests/foo_test.cpp"]) == ("test", None)
 
+    # Lua busted convention: *_spec.lua suffix and test_*.lua prefix at repository root.
+    def test_lua_spec_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_spec.lua"]) == ("test", None)
+
+    def test_lua_test_prefix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test_foo.lua"]) == ("test", None)
+
+    # Perl convention: *.t suffix at repository root.
+    def test_perl_t_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.t"]) == ("test", None)
+
+    # Erlang Common Test convention: *_SUITE.erl suffix at repository root.
+    def test_erlang_suite_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_SUITE.erl"]) == ("test", None)
+
+    # Haskell hspec convention: *Spec.hs suffix at repository root.
+    def test_haskell_spec_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooSpec.hs"]) == ("test", None)
+
+    # Groovy Spock/JUnit convention: *Spec.groovy and *Test.groovy at repository root.
+    def test_groovy_spec_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooSpec.groovy"]) == ("test", None)
+
+    def test_groovy_test_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTest.groovy"]) == ("test", None)
+
+    # Crystal convention: *_spec.cr suffix at repository root.
+    def test_crystal_spec_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_spec.cr"]) == ("test", None)
+
+    # Important unaffected boundaries for new ecosystems.
+    def test_lua_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.lua"]) == ("fix", None)
+
+    def test_erlang_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.erl"]) == ("fix", None)
+
+    def test_haskell_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["Foo.hs"]) == ("fix", None)
+
+    def test_groovy_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.groovy"]) == ("fix", None)
+
+    def test_crystal_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.cr"]) == ("fix", None)
+
+    def test_lua_spec_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["spec/foo_spec.lua"]) == ("test", None)
+
+    def test_perl_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["t/foo.t"]) == ("test", None)
+
 
 # --- blocked command guard ---
 
