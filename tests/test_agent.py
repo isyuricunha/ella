@@ -910,6 +910,137 @@ class TestInferCommitType:
         ella = _make_ella_shell()
         assert ella.infer_commit_type(["spec/foo_spec.rb"]) == ("test", None)
 
+    # C/C++ conventions: *_test.cpp/cc/cxx/c and test_*.cpp/cc/c at repository root.
+    def test_cpp_test_file_suffix_cpp(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.cpp"]) == ("test", None)
+
+    def test_cpp_test_file_suffix_cc(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.cc"]) == ("test", None)
+
+    def test_cpp_test_file_suffix_cxx(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.cxx"]) == ("test", None)
+
+    def test_cpp_test_file_prefix_cpp(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test_foo.cpp"]) == ("test", None)
+
+    def test_cpp_test_file_prefix_cc(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test_foo.cc"]) == ("test", None)
+
+    def test_c_test_file_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.c"]) == ("test", None)
+
+    def test_c_test_file_prefix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test_foo.c"]) == ("test", None)
+
+    # Swift XCTest convention: *Tests.swift, *Test.swift, Test*.swift at repository root.
+    def test_swift_tests_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTests.swift"]) == ("test", None)
+
+    def test_swift_test_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTest.swift"]) == ("test", None)
+
+    def test_swift_test_prefix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["TestFoo.swift"]) == ("test", None)
+
+    # Kotlin JUnit convention: *Test.kt, Test*.kt at repository root.
+    def test_kotlin_test_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTest.kt"]) == ("test", None)
+
+    def test_kotlin_test_prefix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["TestFoo.kt"]) == ("test", None)
+
+    # Dart/Flutter convention: *_test.dart at repository root.
+    def test_dart_test_file_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.dart"]) == ("test", None)
+
+    # Scala conventions: *Test.scala, *Tests.scala, *Spec.scala, *Specs.scala at repository root.
+    def test_scala_test_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTest.scala"]) == ("test", None)
+
+    def test_scala_tests_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTests.scala"]) == ("test", None)
+
+    def test_scala_spec_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooSpec.scala"]) == ("test", None)
+
+    def test_scala_specs_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooSpecs.scala"]) == ("test", None)
+
+    # Elixir ExUnit convention: *_test.exs at repository root.
+    def test_elixir_test_file_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.exs"]) == ("test", None)
+
+    # Important unaffected boundaries for new ecosystems.
+    def test_cpp_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.cpp"]) == ("fix", None)
+
+    def test_c_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.c"]) == ("fix", None)
+
+    def test_swift_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["Foo.swift"]) == ("fix", None)
+
+    def test_kotlin_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["Foo.kt"]) == ("fix", None)
+
+    def test_dart_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.dart"]) == ("fix", None)
+
+    def test_scala_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["Foo.scala"]) == ("fix", None)
+
+    def test_elixir_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.ex"]) == ("fix", None)
+
+    def test_elixir_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test/foo_test.exs"]) == ("test", None)
+
+    def test_dart_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test/foo_test.dart"]) == ("test", None)
+
+    def test_swift_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["tests/FooTests.swift"]) == ("test", None)
+
+    def test_kotlin_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["tests/FooTest.kt"]) == ("test", None)
+
+    def test_scala_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["tests/FooTest.scala"]) == ("test", None)
+
+    def test_cpp_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["tests/foo_test.cpp"]) == ("test", None)
+
 
 # --- blocked command guard ---
 
