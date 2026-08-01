@@ -3038,6 +3038,12 @@ Note: Only the repository owner can use slash commands."""
             or (path.endswith(".rs") and Path(path).name.endswith("_test.rs"))
             or (path.endswith(".rb") and (Path(path).name.endswith(("_spec.rb", "_test.rb")) or Path(path).name.startswith("test_")))
             or (path.endswith(".php") and (Path(path).name.endswith("Test.php") or Path(path).name.startswith("Test")))
+            or (path.endswith((".c", ".cpp", ".cc", ".cxx")) and (Path(path).name.endswith(("_test.c", "_test.cpp", "_test.cc", "_test.cxx")) or Path(path).name.startswith("test_")))
+            or (path.endswith(".swift") and (Path(path).name.endswith(("Test.swift", "Tests.swift")) or Path(path).name.startswith("Test")))
+            or (path.endswith(".kt") and (Path(path).name.endswith("Test.kt") or Path(path).name.startswith("Test")))
+            or (path.endswith(".dart") and Path(path).name.endswith("_test.dart"))
+            or (path.endswith(".scala") and Path(path).name.endswith(("Test.scala", "Tests.scala", "Spec.scala", "Specs.scala")))
+            or (path.endswith(".exs") and Path(path).name.endswith("_test.exs"))
             for path in normalized
         ):
             return "test", None
