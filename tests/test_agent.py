@@ -716,6 +716,26 @@ class TestInferCommitType:
         result = ella.infer_commit_type(["foo.test.py"])
         assert result == ("test", None)
 
+    def test_root_level_test_prefix_js(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["test_foo.js"])
+        assert result == ("test", None)
+
+    def test_root_level_test_prefix_jsx(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["test_component.jsx"])
+        assert result == ("test", None)
+
+    def test_root_level_test_prefix_ts(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["test_foo.ts"])
+        assert result == ("test", None)
+
+    def test_root_level_test_prefix_tsx(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["test_component.tsx"])
+        assert result == ("test", None)
+
     def test_empty_list(self):
         ella = _make_ella_shell()
         assert ella.infer_commit_type([]) == ("chore", None)
