@@ -3030,7 +3030,7 @@ Note: Only the repository owner can use slash commands."""
             or path.startswith("tests/")
             or path.endswith((".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx", ".test.js", ".spec.js",
                               ".test.py", ".spec.py"))
-            or (Path(path).name.startswith("test_") and path.endswith(".py"))
+            or (Path(path).name.startswith("test_") and path.endswith((".py", ".js", ".jsx", ".ts", ".tsx")))
             for path in normalized
         ):
             return "test", None
