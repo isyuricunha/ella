@@ -3032,6 +3032,9 @@ Note: Only the repository owner can use slash commands."""
                               ".spec.ts", ".spec.tsx", ".spec.mts", ".spec.cts", ".spec.js", ".spec.jsx", ".spec.mjs", ".spec.cjs",
                               ".test.py", ".spec.py"))
             or (Path(path).name.startswith("test_") and path.endswith((".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts")))
+            or (path.endswith(".go") and Path(path).name.endswith("_test.go"))
+            or (path.endswith(".java") and (Path(path).name.endswith(("Test.java", "Tests.java", "TestCase.java")) or Path(path).name.startswith("Test")))
+            or (path.endswith(".cs") and (Path(path).name.endswith(("Test.cs", "Tests.cs")) or Path(path).name.startswith("Test")))
             for path in normalized
         ):
             return "test", None
