@@ -3035,6 +3035,9 @@ Note: Only the repository owner can use slash commands."""
             or (path.endswith(".go") and Path(path).name.endswith("_test.go"))
             or (path.endswith(".java") and (Path(path).name.endswith(("Test.java", "Tests.java", "TestCase.java")) or Path(path).name.startswith("Test")))
             or (path.endswith(".cs") and (Path(path).name.endswith(("Test.cs", "Tests.cs")) or Path(path).name.startswith("Test")))
+            or (path.endswith(".rs") and Path(path).name.endswith("_test.rs"))
+            or (path.endswith(".rb") and (Path(path).name.endswith(("_spec.rb", "_test.rb")) or Path(path).name.startswith("test_")))
+            or (path.endswith(".php") and (Path(path).name.endswith("Test.php") or Path(path).name.startswith("Test")))
             for path in normalized
         ):
             return "test", None

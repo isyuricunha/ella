@@ -852,6 +852,64 @@ class TestInferCommitType:
         ella = _make_ella_shell()
         assert ella.infer_commit_type(["tests/foo_test.go"]) == ("test", None)
 
+    # Rust convention: *_test.rs at repository root (cargo test convention).
+    def test_rust_test_file_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.rs"]) == ("test", None)
+
+    def test_rust_test_file_main_test(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["main_test.rs"]) == ("test", None)
+
+    # Ruby RSpec convention: *_spec.rb at repository root.
+    def test_ruby_rspec_file_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_spec.rb"]) == ("test", None)
+
+    # Ruby minitest/Test::Unit convention: test_*.rb at repository root.
+    def test_ruby_minitest_file_prefix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["test_foo.rb"]) == ("test", None)
+
+    # Ruby Rails/minitest convention: *_test.rb at repository root.
+    def test_ruby_minitest_file_suffix(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["user_test.rb"]) == ("test", None)
+
+    def test_ruby_minitest_file_suffix_generic(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo_test.rb"]) == ("test", None)
+
+    # PHP PHPUnit convention: *Test.php and Test*.php at repository root.
+    def test_php_test_file_suffix_test(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["FooTest.php"]) == ("test", None)
+
+    def test_php_test_file_prefix_test(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["TestFoo.php"]) == ("test", None)
+
+    # Important unaffected boundaries for Rust, Ruby, and PHP.
+    def test_rust_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.rs"]) == ("fix", None)
+
+    def test_ruby_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["foo.rb"]) == ("fix", None)
+
+    def test_php_non_test_file(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["Foo.php"]) == ("fix", None)
+
+    def test_rust_test_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["tests/foo_test.rs"]) == ("test", None)
+
+    def test_ruby_spec_in_test_dir(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["spec/foo_spec.rb"]) == ("test", None)
+
 
 # --- blocked command guard ---
 
