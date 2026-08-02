@@ -3086,7 +3086,7 @@ Note: Only the repository owner can use slash commands."""
             or path.startswith(".github/actions/")
             or path.startswith(".ella/")
             or path in {"Dockerfile", "docker-compose.yml", "compose.yml"}
-            or path.endswith((".yml", ".yaml"))
+            or (path.endswith((".yml", ".yaml")) and Path(path).name != "pnpm-lock.yaml")
             for path in normalized
         ):
             return "ci", None

@@ -726,6 +726,16 @@ class TestInferCommitType:
         result = ella.infer_commit_type(["yarn.lock"])
         assert result == ("chore", "deps")
 
+    def test_root_pnpm_lock_yaml_classified_as_deps(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["pnpm-lock.yaml"])
+        assert result == ("chore", "deps")
+
+    def test_nested_pnpm_lock_yaml_classified_as_deps(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["frontend/pnpm-lock.yaml"])
+        assert result == ("chore", "deps")
+
     def test_mixed_defaults_to_fix(self):
         ella = _make_ella_shell()
         result = ella.infer_commit_type(["src/app.tsx", "README.md"])
