@@ -701,6 +701,31 @@ class TestInferCommitType:
         assert result[0] == "chore"
         assert result[1] == "deps"
 
+    def test_root_bun_lock_classified_as_deps(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["bun.lock"])
+        assert result == ("chore", "deps")
+
+    def test_nested_bun_lock_classified_as_deps(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["frontend/bun.lock"])
+        assert result == ("chore", "deps")
+
+    def test_bun_lockb_classified_as_deps(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["bun.lockb"])
+        assert result == ("chore", "deps")
+
+    def test_npm_package_lock_classified_as_deps(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["package-lock.json"])
+        assert result == ("chore", "deps")
+
+    def test_yarn_lock_classified_as_deps(self):
+        ella = _make_ella_shell()
+        result = ella.infer_commit_type(["yarn.lock"])
+        assert result == ("chore", "deps")
+
     def test_mixed_defaults_to_fix(self):
         ella = _make_ella_shell()
         result = ella.infer_commit_type(["src/app.tsx", "README.md"])
