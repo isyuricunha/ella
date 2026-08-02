@@ -364,6 +364,73 @@ class TestDetectInstallPython:
         names = [c[0] for c in commands]
         assert "pip-editable" in names
 
+    def test_pyproject_pep621_dependencies_compact_spacing_detected(self, temp_repo, monkeypatch):
+        # Regression: compact TOML with no whitespace around "=" was missed
+        # by the whitespace-sensitive literal substring check.
+        (temp_repo / "pyproject.toml").write_text(
+            "[project]\nname=\"foo\"\ndependencies=[\"requests\"]\n"
+        )
+        ella = _make_ella_shell()
+        commands = ella.detect_install_commands()
+        names = [c[0] for c in commands]
+        assert "pip-editable" in names
+
+    def test_pyproject_pep621_dependencies_multiline_detected(self, temp_repo, monkeypatch):
+        # Multiline dependencies array must be detected as a build target.
+        (temp_repo / "pyproject.toml").write_text(
+            "[project]\nname = \"foo\"\ndependencies = [\n"
+            "    \"requests\",\n"
+            "    \"click>=8.0\",\n"
+            "]\n"
+        )
+        ella = _make_ella_shell()
+        commands = ella.detect_install_commands()
+        names = [c[0] for c in commands]
+        assert "pip-editable" in names
+
+    def test_pyproject_hatch_packages_compact_spacing_detected(self, temp_repo, monkeypatch):
+        # Compact hatch packages assignment must be detected as a build target.
+        (temp_repo / "pyproject.toml").write_text(
+            "[build-system]\nbuild-backend=\"hatchling.build\"\n"
+            "[tool.hatch.build.targets.wheel]\npackages=[\"src/mypkg\"]\n"
+        )
+        ella = _make_ella_shell()
+        commands = ella.detect_install_commands()
+        names = [c[0] for c in commands]
+        assert "pip-editable" in names
+
+    def test_pyproject_hatch_empty_packages_compact_excluded(self, temp_repo, monkeypatch):
+        # Compact empty packages list must NOT trigger pip-editable.
+        (temp_repo / "pyproject.toml").write_text(
+            "[build-system]\nbuild-backend=\"hatchling.build\"\n"
+            "[tool.hatch.build.targets.wheel]\npackages=[]\n"
+        )
+        ella = _make_ella_shell()
+        commands = ella.detect_install_commands()
+        names = [c[0] for c in commands]
+        assert "pip-editable" not in names
+
+    def test_pyproject_hatch_empty_packages_multiline_excluded(self, temp_repo, monkeypatch):
+        # Multiline empty-looking packages list must NOT trigger pip-editable.
+        (temp_repo / "pyproject.toml").write_text(
+            "[build-system]\nbuild-backend = \"hatchling.build\"\n"
+            "[tool.hatch.build.targets.wheel]\npackages = []\n"
+        )
+        ella = _make_ella_shell()
+        commands = ella.detect_install_commands()
+        names = [c[0] for c in commands]
+        assert "pip-editable" not in names
+
+    def test_pyproject_invalid_toml_returns_false(self, temp_repo, monkeypatch):
+        # Invalid TOML (unparseable) must not crash and must not detect a build target.
+        (temp_repo / "pyproject.toml").write_text(
+            "not = valid = toml = at = all\n[unterminated\n"
+        )
+        ella = _make_ella_shell()
+        commands = ella.detect_install_commands()
+        names = [c[0] for c in commands]
+        assert "pip-editable" not in names
+
 
 class TestDetectInstallOther:
     def test_composer_detected(self, temp_repo, monkeypatch):

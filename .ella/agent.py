@@ -508,6 +508,14 @@ def _strip_tool_call_json(text: str) -> str:
     return cleaned
 
 
+def _normalize_lowercase(text: str) -> str:
+    """Lowercase ``text`` and collapse all whitespace between key, ``=`` and
+    the opening array bracket, so whitespace-sensitive literal checks become
+    spacing-agnostic without pulling in a TOML parser."""
+    import re as _re
+    return _re.sub(r'\s*=\s*\[', '=[', text.lower())
+
+
 def _pyproject_has_build_target(path: Path) -> bool:
     """Check if a pyproject.toml defines a buildable Python package.
 
@@ -519,13 +527,73 @@ def _pyproject_has_build_target(path: Path) -> bool:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    if "[project]" in text and "dependencies = [" in text:
+
+    # Prefer a real TOML parse so spacing around '=' never affects detection.
+    parsed: dict | None = None
+    try:
+        import tomllib  # Python 3.11+ stdlib
+        parsed = tomllib.loads(text)
+    except Exception:
+        try:
+            import tomli  # optional backport for 3.10
+            parsed = tomli.loads(text)
+        except Exception:
+            parsed = None
+
+    if parsed is not None:
+        project = parsed.get("project")
+        if isinstance(project, dict) and "dependencies" in project:
+            return True
+
+        build_system = parsed.get("build-system")
+        if isinstance(build_system, dict) and "build-backend" in build_system:
+            # Check for hatch wheel packages first (more specific)
+            hatch_packages = _hatch_wheel_packages(parsed)
+            if hatch_packages is not None:
+                # If hatch explicitly defines packages, respect emptiness
+                return bool(hatch_packages)
+            # Fallback: if we cannot locate hatch packages, use the original
+            # heuristic: presence of build-system + build-backend and no
+            # explicit empty packages list (via normalized string search)
+            lower = _normalize_lowercase(text)
+            if "[build-system]" in lower and "build-backend" in lower and "packages=[]" not in lower:
+                return True
+
+        return False
+
+    # Narrow normalization fallback: only reached when no TOML parser is
+    # available (Python 3.10 without tomli). Collapse whitespace around
+    # '= [' so compact spacing like 'dependencies=[' is detected, and
+    # exclude empty 'packages=[]' regardless of spacing.
+    lower = _normalize_lowercase(text)
+    if "[project]" in lower and "dependencies=[" in lower:
         return True
-    if "[tool.hatch.build" in text and "packages = []" not in text:
+    if "[tool.hatch.build]" in lower and "packages=[]" not in lower:
         return True
-    if "build-backend" in text and "[build-system]" in text and "packages = []" not in text:
+    if "build-backend" in lower and "[build-system]" in lower and "packages=[]" not in lower:
         return True
     return False
+
+
+def _hatch_wheel_packages(parsed: dict) -> list | None:
+    """Return the ``packages`` list from a parsed hatch wheel target, if any."""
+    tool = parsed.get("tool")
+    if not isinstance(tool, dict):
+        return None
+    hatch = tool.get("hatch")
+    if not isinstance(hatch, dict):
+        return None
+    build = hatch.get("build")
+    if not isinstance(build, dict):
+        return None
+    targets = build.get("targets")
+    if not isinstance(targets, dict):
+        return None
+    wheel = targets.get("wheel")
+    if not isinstance(wheel, dict):
+        return None
+    packages = wheel.get("packages")
+    return packages
 
 
 def safe_rel_path(path: str) -> bool:
