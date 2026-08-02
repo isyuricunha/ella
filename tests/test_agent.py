@@ -1153,6 +1153,31 @@ class TestInferCommitType:
         ella = _make_ella_shell()
         assert ella.infer_commit_type(["test/foo_test.clj"]) == ("test", None)
 
+    # Bun text lockfile (bun.lock) and legacy binary lockfile (bun.lockb).
+    def test_bun_lock_dependency_update(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["bun.lock"]) == ("chore", "deps")
+
+    def test_bun_lock_nested_dependency_update(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["frontend/bun.lock"]) == ("chore", "deps")
+
+    def test_bun_lockb_dependency_update(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["bun.lockb"]) == ("chore", "deps")
+
+    def test_bun_lockb_nested_dependency_update(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["frontend/bun.lockb"]) == ("chore", "deps")
+
+    def test_package_lock_json_dependency_update(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["package-lock.json"]) == ("chore", "deps")
+
+    def test_yarn_lock_dependency_update(self):
+        ella = _make_ella_shell()
+        assert ella.infer_commit_type(["yarn.lock"]) == ("chore", "deps")
+
 
 # --- blocked command guard ---
 

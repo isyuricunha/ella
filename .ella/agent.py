@@ -3127,7 +3127,7 @@ Note: Only the repository owner can use slash commands."""
             return "test", None
 
         if any(
-            path.endswith(("package.json", "pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lockb"))
+            path.endswith(("package.json", "pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lock", "bun.lockb"))
             or "dependabot" in path
             for path in normalized
         ):
